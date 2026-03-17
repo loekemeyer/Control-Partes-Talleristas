@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Piezas por Tallerista</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="card">
+    <h1>Piezas por Tallerista</h1>
+
+        <div class="row-tools">
+      <button id="btnVolver" class="btn-volver hidden" type="button">← Cambiar tallerista</button>
+    </div>
+
+    <div class="row">
+      <div id="talleristasGrid" class="talleristas-grid"></div>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div id="result"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
