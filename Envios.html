@@ -5,41 +5,52 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Envios por Tallerista</title>
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="Envios.css" />
 </head>
 <body>
 
   <div class="card">
 
-  <div class="header-bar">
-<div class="header-left">
+    <!-- HEADER -->
+    <div class="header-bar">
 
-  <button onclick="window.location.href='index.html'" class="tallerista-btn btn-volver-home">
-    ← Inicio
-  </button>
+      <div class="header-left">
 
-  <h1>Envios por Tallerista</h1>
+        <button onclick="window.location.href='index.html'" class="tallerista-btn btn-volver-home">
+          ← Inicio
+        </button>
 
-  <button id="btnEnviarCambios" class="btn-enviar hidden" type="button">
-    Enviar
-  </button>
+        <h1>Envios por Tallerista</h1>
 
-</div>
-      class="btn-enviar hidden" type="button">
-      Enviar
-    </button>
+        <button id="btnEnviarCambios" class="btn-enviar hidden" type="button">
+          Enviar
+        </button>
+
+      </div>
+
+      <div class="header-right">
+
+        <button id="btnVolver" class="btn-volver hidden" type="button">
+          ← Cambiar tallerista
+        </button>
+
+        <div id="talleristasGrid" class="talleristas-grid"></div>
+
+      </div>
+
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="result"></div>
+
   </div>
 
-  <div class="header-right">
-    <button id="btnVolver" class="btn-volver hidden" type="button">← Cambiar tallerista</button>
-    <div id="talleristasGrid" class="talleristas-grid"></div>
-  </div>
-</div>
-
-<div id="result"></div>
-    
-
+  <!-- JS -->
   <script src="Envios.js"></script>
+
 </body>
 </html>
