@@ -36,16 +36,17 @@
       display: flex;
       justify-content: center;
       gap: 12px;
+      flex-wrap: wrap;
     }
 
     .btn-opcion {
-      min-width: 100px;
-      height: 42px;
+      min-width: 200px;
+      height: 48px;
       padding: 0 20px;
       border-radius: 999px;
       border: 3px solid #b9b9b9;
       background: #f7f7f7;
-      font-size: 15px;
+      font-size: 16px;
       cursor: pointer;
       transition: 0.15s ease;
       box-shadow:
@@ -53,17 +54,10 @@
         0 1px 0 rgba(0,0,0,0.04);
     }
 
-    .btn-opcion.activo {
-      background: #dcdcdc;
+    .btn-opcion:hover {
       border-color: #7f7f7f;
       font-weight: 700;
-    }
-
-    .resultado {
-      margin-top: 20px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 15px;
+      background: #e5e5e5;
     }
   </style>
 </head>
@@ -74,26 +68,25 @@
     <h1>Elegí una opción</h1>
 
     <div class="botones">
-      <button class="btn-opcion" data-value="opcion1">Ver Stock Tallerista</button>
-      <button class="btn-opcion" data-value="opcion2">Enviar a tallerista</button>
-    </div>
+      <button class="btn-opcion" data-link="Control.html">
+        Ver Stock Tallerista
+      </button>
 
-    <div class="resultado" id="resultado"></div>
+      <button class="btn-opcion" data-link="Envios.html">
+        Enviar a Tallerista
+      </button>
+    </div>
   </div>
 
   <script>
     const botones = document.querySelectorAll(".btn-opcion");
-    const resultado = document.getElementById("resultado");
-
-    let seleccion = "";
 
     botones.forEach(btn => {
       btn.addEventListener("click", () => {
-        botones.forEach(b => b.classList.remove("activo"));
-        btn.classList.add("activo");
-
-        seleccion = btn.dataset.value;
-        resultado.textContent = "Seleccionado: " + seleccion;
+        const destino = btn.dataset.link;
+        if (destino) {
+          window.location.href = destino;
+        }
       });
     });
   </script>
