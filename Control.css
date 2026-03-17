@@ -348,3 +348,19 @@ h1{
   font-weight:700;
   cursor:pointer;
 }
+.btn-volver-home{
+  margin-bottom: 10px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-volver-home:hover{
+  border-color:#111;
+}
+
