@@ -503,4 +503,6 @@ h1{
 .btn-volver-home:hover{
   border-color:#111;
 }
-
+.btn-volver-home{
+  margin-right: 10px;
+}
