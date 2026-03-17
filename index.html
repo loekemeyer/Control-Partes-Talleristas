@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Selector</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #d9d9de;
+      padding: 20px;
+    }
+
+    .card {
+      max-width: 500px;
+      margin: 0 auto;
+      background: #ececec;
+      border: 1px solid #cfcfcf;
+      border-radius: 18px;
+      padding: 22px 20px 28px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .botones {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .btn-opcion {
+      min-width: 100px;
+      height: 42px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: 3px solid #b9b9b9;
+      background: #f7f7f7;
+      font-size: 15px;
+      cursor: pointer;
+      transition: 0.15s ease;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        0 1px 0 rgba(0,0,0,0.04);
+    }
+
+    .btn-opcion.activo {
+      background: #dcdcdc;
+      border-color: #7f7f7f;
+      font-weight: 700;
+    }
+
+    .resultado {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h1>Elegí una opción</h1>
+
+    <div class="botones">
+      <button class="btn-opcion" data-value="opcion1">Ver Stock Tallerista</button>
+      <button class="btn-opcion" data-value="opcion2">Enviar a tallerista</button>
+    </div>
+
+    <div class="resultado" id="resultado"></div>
+  </div>
+
+  <script>
+    const botones = document.querySelectorAll(".btn-opcion");
+    const resultado = document.getElementById("resultado");
+
+    let seleccion = "";
+
+    botones.forEach(btn => {
+      btn.addEventListener("click", () => {
+        botones.forEach(b => b.classList.remove("activo"));
+        btn.classList.add("activo");
+
+        seleccion = btn.dataset.value;
+        resultado.textContent = "Seleccionado: " + seleccion;
+      });
+    });
+  </script>
+
+</body>
+</html>
