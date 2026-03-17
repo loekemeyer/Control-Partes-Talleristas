@@ -488,5 +488,19 @@ h1{
   max-width:19px;
 }
 }
+.btn-volver-home{
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
+.btn-volver-home:hover{
+  border-color:#111;
+}
 
