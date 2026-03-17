@@ -672,7 +672,17 @@ async function buscar(nombreParam){
     const stockOnlineKg = stockOnlineUni * kgXUni;
     const stockOnlineCaj = kgXCajon > 0 ? (stockOnlineKg / kgXCajon) : 0;
 
-    const cajonesEnviar = Math.max(0, maxCajones - stockOnlineCaj);
+    const onlineUni = kgXUni > 0
+  ? (stockInicialKg / kgXUni) + totalEnviosUni - totalEntregasUni
+  : 0;
+
+const onlineKg = onlineUni * kgXUni;
+
+const onlineCaj = kgXCajon > 0
+  ? (onlineKg / kgXCajon)
+  : 0;
+
+const cajonesEnviar = maxCajones - onlineCaj;
 
     if (cajonesEnviar > 0){
       filasFiltradas.push({
