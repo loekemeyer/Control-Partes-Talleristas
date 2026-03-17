@@ -912,5 +912,7 @@ async function buscar(nombreParam){
     }
   });
 }
-
+document.addEventListener("DOMContentLoaded", () => {
+  cargarTalleristas();
+});
 cargarTalleristas();
