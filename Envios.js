@@ -675,9 +675,6 @@ console.log("Registros a insertar:", registros);
 const { error } = await supabaseClient
   .from("Envios a Talleristas")
   .insert(registros);
-  const { error } = await supabaseClient
-    .from("Envios a Talleristas")
-    .insert(registros);
 
 if (error){
   console.error("Error al enviar:", error);
