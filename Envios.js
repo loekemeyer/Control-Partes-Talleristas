@@ -672,12 +672,26 @@ async function enviarCambios(){
   
 console.log("Registros a insertar:", registros);
 
+console.log("Registros a insertar:", registros);
+
 const { error } = await supabaseClient
   .from("Envios a Talleristas")
   .insert(registros);
-  const { error } = await supabaseClient
-    .from("Envios a Talleristas")
-    .insert(registros);
+
+if (error){
+  console.error("Error al enviar:", error);
+
+  alert(
+    "Error al guardar en Supabase:\n" +
+    (error.message || "") +
+    (error.details ? "\nDetalles: " + error.details : "") +
+    (error.hint ? "\nHint: " + error.hint : "")
+  );
+
+  btnEnviarCambios.disabled = false;
+  btnEnviarCambios.textContent = "Enviar";
+  return;
+}
 
 if (error){
   console.error("Error al enviar:", error);
