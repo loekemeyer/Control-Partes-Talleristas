@@ -151,7 +151,7 @@ h1{
   border-spacing:0;
   table-layout:fixed;
   width:100%;
-  min-width:720px;
+  min-width:0;
 }
 
 .table th,
