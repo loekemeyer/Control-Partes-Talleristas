@@ -197,15 +197,26 @@ function renderTable(items) {
         <td>${escapeHtml(item.sc)}</td>
         <td>${escapeHtml(item.sp)}</td>
         <td>
-          <input
-            class="input-caj"
-            type="text"
-            inputmode="numeric"
-            placeholder="0"
-            data-role="cajones"
-            data-idx="${i}"
-          />
-        </td>
+  <input
+    class="input-kg"
+    type="text"
+    inputmode="decimal"
+    placeholder="0,0"
+    data-role="kg"
+    data-idx="${i}"
+  />
+</td>
+
+<td>
+  <input
+    class="input-caj"
+    type="text"
+    inputmode="numeric"
+    placeholder="0"
+    data-role="cajones"
+    data-idx="${i}"
+  />
+</td>
       </tr>
     `;
   }).join("");
@@ -218,6 +229,15 @@ function renderTable(items) {
       updateEnviarState();
     });
   });
+  // KG → permite coma y decimal
+resultBody.querySelectorAll('input[data-role="kg"]').forEach(input => {
+  input.addEventListener("input", () => {
+    input.value = input.value
+      .replace(/[^0-9,]/g, "")   // solo números y coma
+      .replace(/(,.*),/g, '$1'); // solo una coma
+    updateEnviarState();
+  });
+});
 }
 
 function showSelectionView() {
@@ -306,6 +326,8 @@ function getItemsFromTable() {
   return fetchedItems.map((item, i) => {
     const input = resultBody.querySelector(`input[data-role="cajones"][data-idx="${i}"]`);
     const cajones = String(input?.value || "").trim();
+    const kgInput = resultBody.querySelector(`input[data-role="kg"][data-idx="${i}"]`);
+const kg = String(kgInput?.value || "").trim();
 
     return {
       ps: item.ps,
@@ -315,6 +337,16 @@ function getItemsFromTable() {
       sp: item.sp,
       cajones
     };
+    return {
+  ps: item.ps,
+  proceso: item.proceso,
+  parte: item.parte,
+  sc: item.sc,
+  sp: item.sp,
+  cajones,
+  kg // 👈 NUEVO
+};
+    
   });
 }
 
