@@ -642,7 +642,7 @@ async function enviarCambios(){
 
     const kg = parseDecimal(inputKg?.value);
     const cajones = parseDecimal(inputCaj?.value);
-    const faltante = box?.classList.contains("active") ? "F" : "";
+    const faltante = box?.classList.contains("active") || false;
 
     if (!kg && !cajones && !faltante) return;
 
