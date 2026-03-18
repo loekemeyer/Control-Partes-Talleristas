@@ -313,3 +313,18 @@ body {
     width: 100%;
   }
 }
+.btn-home {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #c7c7c7;
+  background: #f7f7f7;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.btn-home:hover {
+  background: #e5e5e5;
+  border-color: #999;
+}
