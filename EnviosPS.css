@@ -184,8 +184,15 @@ body {
   text-align: center;
 }
 
+/* Kg */
 .table tbody td:nth-child(5) {
-  width: 16%;
+  width: 14%;
+  text-align: center;
+}
+
+/* Caj */
+.table tbody td:nth-child(6) {
+  width: 14%;
   text-align: center;
 }
 
@@ -327,4 +334,19 @@ body {
 .btn-home:hover {
   background: #e5e5e5;
   border-color: #999;
+}
+.input-kg {
+  width: 90px;
+  height: 30px;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 14px;
+  background: #fafafa;
+}
+
+.input-kg:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
 }
