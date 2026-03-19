@@ -4,6 +4,27 @@
 .table {
   table-layout: fixed;
 }
+.faltante-box{
+  width:22px;
+  height:22px;
+  border:2px solid #111;
+  border-radius:3px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+  margin:auto;
+  user-select:none;
+  background:#fff;
+}
+
+.faltante-box.active{
+  background:#e8fbe8;
+  border-color:#16a34a;
+  color:#16a34a;
+}
 .tallerista-btn{
   min-height:62px;
   padding:0 26px;
