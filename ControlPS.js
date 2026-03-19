@@ -6,7 +6,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /*************************************************
  * TABLA BASE
  *************************************************/
-const TABLA_PARTES_SP = "Partes x SP";
+const TABLA_PARTES_SP = "Partes x PS";
 
 const COL_PS = "PS";
 const COL_PARTE = "Parte";
@@ -138,7 +138,7 @@ async function cargarPS(){
 }
 
 /*************************************************
- * CARGA PARTES x SP
+ * CARGA PARTES x PS
  *************************************************/
 async function cargarPartesSP(){
   if (partesSPCache) return partesSPCache;
