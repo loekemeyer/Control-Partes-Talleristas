@@ -86,12 +86,12 @@ async function cargarSPKG(){
   const map = new Map();
 
   data.forEach(r=>{
-    const key = String(r.SP || r.Sp || "").trim().toLowerCase();
+    const key = String(r.Sp || "").trim().toLowerCase();
     if (!key) return;
   
     map.set(key,{
-      kgUni: num(r["Kg x UNI"] || r["Kg x Uni"]),
-      kgCaj: num(r["Kg Cajon"] || r["Kg Cajón"])
+      kgUni: num(r["Kg x UNI"]),
+      kgCaj: num(r["Kg Cajon"])
     });
   });
 
