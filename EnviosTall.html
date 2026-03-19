@@ -5,14 +5,20 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Envios por Tallerista</title>
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="EnviosTall.css" />
 </head>
 <body>
 
   <div class="card">
 
+    <!-- HEADER -->
     <div class="header-bar">
+
+      <!-- IZQUIERDA -->
       <div class="header-left">
         <button onclick="window.location.href='index.html'" class="btn-home" type="button">
           ← Inicio
@@ -23,8 +29,12 @@
         </button>
       </div>
 
-      <h1>Envios por Tallerista</h1>
+      <!-- CENTRO -->
+      <div class="header-title">
+        <h1>Envios por Tallerista</h1>
+      </div>
 
+      <!-- DERECHA -->
       <div class="header-right">
         <div id="talleristasGrid" class="talleristas-grid"></div>
 
@@ -32,11 +42,16 @@
           Enviar
         </button>
       </div>
+
     </div>
 
+    <!-- RESULTADO -->
     <div id="result"></div>
+
   </div>
 
+  <!-- JS -->
   <script src="EnviosTall.js"></script>
+
 </body>
 </html>
