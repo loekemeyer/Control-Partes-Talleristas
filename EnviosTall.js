@@ -620,6 +620,7 @@ function activarBotonEnviar(){
     inputs.forEach(input => {
       input.addEventListener("input", () => {
         btnEnviarCambios.classList.remove("hidden");
+        btnEnviarCambios.classList.add("enabled");
       });
     });
   });
@@ -688,6 +689,7 @@ if (error){
 
   btnEnviarCambios.disabled = false;
   btnEnviarCambios.textContent = "Enviar";
+  btnEnviarCambios.classList.remove("enabled");
   return;
 }
 
@@ -695,6 +697,7 @@ if (error){
   btnEnviarCambios.disabled = false;
   btnEnviarCambios.textContent = "Enviar";
   btnEnviarCambios.classList.add("hidden");
+  btnEnviarCambios.classList.remove("enabled");
 
   if (talleristaActivo){
     await buscar(talleristaActivo);
@@ -714,6 +717,7 @@ async function buscar(nombreParam){
 
   if (btnEnviarCambios){
     btnEnviarCambios.classList.add("hidden");
+    btnEnviarCambios.classList.remove("enabled");
     btnEnviarCambios.disabled = false;
     btnEnviarCambios.textContent = "Enviar";
   }
@@ -899,6 +903,7 @@ async function buscar(nombreParam){
 
       if (btnEnviarCambios){
         btnEnviarCambios.classList.remove("hidden");
+        btnEnviarCambios.classList.add("enabled");
       }
     });
   });
