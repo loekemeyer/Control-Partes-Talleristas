@@ -13,12 +13,51 @@ const talleristasGrid = document.getElementById("talleristasGrid");
 const resultEl = document.getElementById("result");
 const btnVolver = document.getElementById("btnVolver");
 const btnEnviarCambios = document.getElementById("btnEnviarCambios");
+const TABLA_DESTINO = "Envios a Talleristas";
+const filasModificadas = new Map();
+/*************************************************
+ * CACHES EN MEMORIA
+ *************************************************/
+let consumosCache = null;
+let sectoresCache = null;
+let stockTalleristaCache = null;
 
 let talleristaActivo = "";
 let listaTalleristas = [];
 
 /*************************************************
- * HELPERS
+ * HELPERS VISUALES
+ *************************************************/
+
+
+function escapeHtml(s){
+  return String(s || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function formatDecimal(n){
+  return Number(n || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
+function parseInputNumber(value){
+  if (value === null || value === undefined) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const normalized = raw.replace(",", ".");
+  const n = Number(normalized);
+
+  return Number.isFinite(n) ? n : null;
+}
+
+/*************************************************
+ * HELPERS DE DATOS
  *************************************************/
 function pick(obj, keys){
   for (const k of keys){
@@ -43,13 +82,22 @@ function normalizeCode(value){
 
   let raw = String(value).trim();
   if (!raw) return "";
+  if (/[a-zA-Z]/.test(raw)) return "";
 
-  const num = Number(raw.replace(",", "."));
+  raw = raw.replace(",", ".");
+
+  const num = Number(raw);
   if (Number.isFinite(num)){
     return String(Math.trunc(num)).padStart(3, "0");
   }
 
-  return raw.replace(/\D/g, "").padStart(3, "0");
+  raw = raw.replace(/\s+/g, "");
+  raw = raw.replace(/[.,]0+$/, "");
+
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+
+  return digits.padStart(3, "0");
 }
 
 function splitCodes(value){
@@ -59,22 +107,6 @@ function splitCodes(value){
     .filter(Boolean);
 }
 
-function parseDecimal(value){
-  if (!value) return 0;
-  return Number(String(value).replace(",", ".")) || 0;
-}
-/*************************************************
- * CACHES
- *************************************************/
-let consumosCache = null;
-let sectoresCache = null;
-let stockTalleristaCache = null;
-let entregasCache = null;
-let enviosCache = null;
-
-/*************************************************
- * HELPERS EXTRA
- *************************************************/
 function parseConsumo(value){
   if (value === null || value === undefined || value === "") return 0;
 
@@ -95,11 +127,26 @@ function parseConsumo(value){
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatDecimal(n){
-  return Number(n || 0).toLocaleString("es-AR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-  });
+function parseDecimal(value){
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "number"){
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  let s = String(value).trim();
+  if (!s || s === "-" || s === "—") return 0;
+
+  s = s.replace(/[^\d,.-]/g, "");
+
+  if (s.includes(",") && !s.includes(".")){
+    s = s.replace(",", ".");
+  } else {
+    s = s.replace(/,/g, "");
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function elegirConsumo(ch, lk){
@@ -112,29 +159,97 @@ function elegirConsumo(ch, lk){
   return 0;
 }
 
-function parseFechaDDMM(value){
-  const s = String(value || "").trim();
-  if (!s) return null;
+/*************************************************
+ * RENDER DE BOTONES DE TALLERISTAS
+ *************************************************/
+function renderTalleristas(lista){
+  talleristasGrid.innerHTML = "";
 
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (!m) return null;
+  lista.forEach(nombre => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tallerista-btn";
+    btn.textContent = nombre;
 
-  const dd = Number(m[1]);
-  const mm = Number(m[2]);
+    if (nombre === talleristaActivo){
+      btn.classList.add("active");
+    }
 
-  if (!dd || !mm) return null;
-
-  return { dd, mm };
+    btn.addEventListener("click", () => seleccionarTallerista(nombre));
+    talleristasGrid.appendChild(btn);
+  });
 }
 
-function sortKeyFechaDDMM(value){
-  const p = parseFechaDDMM(value);
-  if (!p) return 9999;
-  return (p.mm * 100) + p.dd;
+function seleccionarTallerista(nombre){
+  talleristaActivo = nombre;
+  renderTalleristas([nombre]);
+  btnVolver.classList.remove("hidden");
+  buscar(nombre);
+}
+
+async function volverALista(){
+  if (filasModificadas.size > 0){
+    const quiereEnviar = confirm(
+      "No presionaste Enviar.\n\nAceptar = Enviar cambios ahora\nCancelar = Ver más opciones"
+    );
+
+    if (quiereEnviar){
+      await enviarCambios(true);
+      return;
+    }
+
+    const quiereBorrar = confirm(
+      "Tenés cambios sin enviar.\n\nAceptar = Borrar todo lo hecho\nCancelar = Volver atrás"
+    );
+
+    if (!quiereBorrar){
+      return;
+    }
+
+    filasModificadas.clear();
+
+    if (btnEnviarCambios){
+      btnEnviarCambios.classList.add("hidden");
+      btnEnviarCambios.disabled = false;
+      btnEnviarCambios.textContent = "Enviar";
+    }
+  }
+
+  talleristaActivo = "";
+  resultEl.innerHTML = "";
+  btnVolver.classList.add("hidden");
+  renderTalleristas(listaTalleristas);
+}
+
+btnVolver.addEventListener("click", volverALista);
+
+/*************************************************
+ * CARGA LISTA DE TALLERISTAS
+ *************************************************/
+async function cargarTalleristas(){
+  resultEl.innerHTML = "";
+
+  const { data, error } = await supabaseClient
+    .from("v_piezas_por_tallerista_resumen")
+    .select("*")
+    .limit(5000);
+
+  if (error){
+    console.error("Error al cargar talleristas:", error);
+    return;
+  }
+
+  listaTalleristas = [...new Set(
+    (data || [])
+      .map(r => String(pick(r, ["Tallerista", "tallerista", "TALLERISTA"]) || "").trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, "es"));
+
+  renderTalleristas(listaTalleristas);
 }
 
 /*************************************************
- * CARGAS
+ * CARGA CONSUMOS DESDE E. MADRE CH / LK
  *************************************************/
 async function cargarConsumos(){
   if (consumosCache) return consumosCache;
@@ -144,8 +259,15 @@ async function cargarConsumos(){
     supabaseClient.from("E. Madre LK").select("*").limit(10000)
   ]);
 
-  if (respCH.error) throw new Error("Error al leer E. Madre CH");
-  if (respLK.error) throw new Error("Error al leer E. Madre LK");
+  if (respCH.error){
+    console.error(respCH.error);
+    throw new Error("Error al leer E. Madre CH");
+  }
+
+  if (respLK.error){
+    console.error(respLK.error);
+    throw new Error("Error al leer E. Madre LK");
+  }
 
   const mapCH = new Map();
   const mapLK = new Map();
@@ -193,6 +315,9 @@ async function cargarConsumos(){
   return finalMap;
 }
 
+/*************************************************
+ * CARGA DATOS DE DESPIECE
+ *************************************************/
 async function cargarSectores(){
   if (sectoresCache) return sectoresCache;
 
@@ -201,7 +326,10 @@ async function cargarSectores(){
     .select("*")
     .limit(20000);
 
-  if (error) throw new Error("Error al leer Despiece x Articulo");
+  if (error){
+    console.error(error);
+    throw new Error("Error al leer Despiece x Articulo");
+  }
 
   const mapByCodeAndPart = new Map();
   const mapByPart = new Map();
@@ -261,6 +389,9 @@ async function cargarSectores(){
   return sectoresCache;
 }
 
+/*************************************************
+ * CARGA STOCK ONLINE DESDE ARTICULOS VIRGILIO X TALLERISTA
+ *************************************************/
 async function cargarStockTallerista(){
   if (stockTalleristaCache) return stockTalleristaCache;
 
@@ -269,7 +400,10 @@ async function cargarStockTallerista(){
     .select("*")
     .limit(20000);
 
-  if (error) throw new Error("Error al leer Articulos Virgilio X Tallerista");
+  if (error){
+    console.error(error);
+    throw new Error("Error al leer Articulos Virgilio X Tallerista");
+  }
 
   const stockByTalleristaAndCode = new Map();
 
@@ -288,141 +422,9 @@ async function cargarStockTallerista(){
   return stockTalleristaCache;
 }
 
-async function cargarEntregas(){
-  if (entregasCache) return entregasCache;
-
-  const [respEntregas, respPartes] = await Promise.all([
-    supabaseClient.from("Entregas Tallerista Virgilio").select("*").limit(20000),
-    supabaseClient.from("Partes x Tallerista").select("*").limit(20000)
-  ]);
-
-  if (respEntregas.error) throw new Error("Error al leer Entregas Tallerista Virgilio");
-  if (respPartes.error) throw new Error("Error al leer Partes x Tallerista");
-
-  const uniXCajaByNombreTallAndCod = new Map();
-
-  (respPartes.data || []).forEach(r => {
-    const nombreTall = normalizeText(
-      pick(r, ["tallerista", "Tallerista", "TALLERISTA"])
-    );
-
-    const uniXCaja = parseDecimal(
-      pick(r, ["uni_x_cja", "Uni_x_cja", "UNI_X_CJA", "uni x cja"])
-    );
-
-    const codigosParte = [
-      normalizeCode(pick(r, ["cod_art", "Cod_Art", "COD_ART"]))
-    ].filter(Boolean);
-
-    if (!nombreTall || !codigosParte.length) return;
-
-    codigosParte.forEach(cod => {
-      const key = `${nombreTall}__${cod}`;
-      const actual = Number(uniXCajaByNombreTallAndCod.get(key) || 0);
-      uniXCajaByNombreTallAndCod.set(key, Math.max(actual, Number(uniXCaja || 0)));
-    });
-  });
-
-  const detalleByNombreTallAndCod = new Map();
-  const totalByNombreTallAndCod = new Map();
-
-  (respEntregas.data || []).forEach(r => {
-    const nombreTall = normalizeText(
-      pick(r, ["Nombre_Tall", "nombre_tall", "NOMBRE_TALL"])
-    );
-
-    const cod = normalizeCode(
-      pick(r, ["Cod", "cod", "COD"])
-    );
-
-    const cajas = parseDecimal(
-      pick(r, ["Cajas", "cajas", "CAJAS"])
-    );
-
-    const fecha = String(
-      pick(r, ["Fecha", "fecha", "FECHA"]) || ""
-    ).trim();
-
-    if (!nombreTall || !cod || !cajas) return;
-
-    const uniXCaja = Number(uniXCajaByNombreTallAndCod.get(`${nombreTall}__${cod}`) || 0);
-    const unidades = cajas * uniXCaja;
-    const key = `${nombreTall}__${cod}`;
-
-    if (!detalleByNombreTallAndCod.has(key)) detalleByNombreTallAndCod.set(key, []);
-    detalleByNombreTallAndCod.get(key).push({
-      fecha,
-      unidades,
-      cajas,
-      uniXCaja,
-      cod
-    });
-
-    totalByNombreTallAndCod.set(key, (totalByNombreTallAndCod.get(key) || 0) + unidades);
-  });
-
-  for (const [key, arr] of detalleByNombreTallAndCod.entries()){
-    arr.sort((a, b) => sortKeyFechaDDMM(a.fecha) - sortKeyFechaDDMM(b.fecha));
-    detalleByNombreTallAndCod.set(key, arr);
-  }
-
-  entregasCache = {
-    totalByNombreTallAndCod,
-    detalleByNombreTallAndCod
-  };
-
-  return entregasCache;
-}
-
-async function cargarEnvios(){
-  if (enviosCache) return enviosCache;
-
-  const { data, error } = await supabaseClient
-    .from("Envios a Talleristas")
-    .select("*")
-    .limit(20000);
-
-  if (error) throw new Error("Error al leer Envios a Talleristas");
-
-  const detalleMap = new Map();
-  const totalKgMap = new Map();
-
-  (data || []).forEach(r => {
-    const tallerista = normalizeText(pick(r, ["Tallerista", "tallerista", "TALLERISTA"]));
-    const sector = normalizeText(pick(r, ["Sector", "sector", "SECTOR"]));
-    const descripcion = normalizeText(pick(r, ["Descripcion", "descripcion", "DESCRIPCION", "Descripción"]));
-
-    const fecha = String(
-      pick(r, ["Dia-mes", "dia-mes", "DIA-MES", "Dia_mes"]) || ""
-    ).trim();
-
-    const kg = parseDecimal(pick(r, ["KG", "kg", "Kg"]));
-    const cajones = parseDecimal(pick(r, ["Cajones", "cajones", "CAJONES", "Caj", "caj"]));
-
-    if (!tallerista || !descripcion) return;
-    if (!kg && !cajones) return;
-
-    const key = `${tallerista}__${sector}__${descripcion}`;
-
-    if (!detalleMap.has(key)) detalleMap.set(key, []);
-    detalleMap.get(key).push({ fecha, kg, cajones });
-
-    totalKgMap.set(key, (totalKgMap.get(key) || 0) + kg);
-  });
-
-  for (const [key, arr] of detalleMap.entries()){
-    arr.sort((a, b) => sortKeyFechaDDMM(a.fecha) - sortKeyFechaDDMM(b.fecha));
-    detalleMap.set(key, arr);
-  }
-
-  enviosCache = {
-    detalleMap,
-    totalKgMap
-  };
-
-  return enviosCache;
-}
-
+/*************************************************
+ * HELPERS DE CÁLCULO
+ *************************************************/
 function obtenerSectorProce(descripcion, codigos, sectoresData){
   const parteNorm = normalizeText(descripcion);
   if (!parteNorm) return "";
@@ -489,6 +491,20 @@ function obtenerPartesXUni(descripcion, codigos, sectoresData){
   return Number(partesXUniByPart.get(parteNorm) || 0);
 }
 
+function obtenerStockOnlineTallerista(nombreTallerista, codigos, stockMap){
+  const talleristaNorm = normalizeText(nombreTallerista);
+  if (!talleristaNorm) return 0;
+
+  let total = 0;
+
+  for (const cod of codigos){
+    const key = `${talleristaNorm}__${cod}`;
+    total += Number(stockMap.get(key) || 0);
+  }
+
+  return total;
+}
+
 function calcularCajones(consumoTotal, kgXUni, partesXUni, kgXCajon){
   const consumo = Number(consumoTotal || 0);
   const uni = Number(kgXUni || 0);
@@ -500,212 +516,83 @@ function calcularCajones(consumoTotal, kgXUni, partesXUni, kgXCajon){
   return (consumo * uni * partes) / caj;
 }
 
-function obtenerEntregasTallerista(nombreTallerista, codigos, entregasData){
-  const nombreTallNorm = normalizeText(nombreTallerista);
-
-  let totalUnidades = 0;
-
-  if (!nombreTallNorm){
-    return { totalUnidades: 0, detalle: [] };
-  }
-
-  for (const cod of codigos){
-    const key = `${nombreTallNorm}__${cod}`;
-    totalUnidades += Number(entregasData.totalByNombreTallAndCod.get(key) || 0);
-  }
-
-  return {
-    totalUnidades
-  };
-}
-
-function obtenerEnviosTallerista(nombre, sector, descripcion, enviosData, kgXUni){
-  const key = `${normalizeText(nombre)}__${normalizeText(sector)}__${normalizeText(descripcion)}`;
-
-  const totalKg = Number(enviosData.totalKgMap.get(key) || 0);
-  const totalUni = kgXUni > 0 ? Math.round(totalKg / kgXUni) : 0;
-
-  return {
-    totalKg,
-    totalUni
-  };
-}
-
 /*************************************************
- * VISUAL
+ * LÓGICA FALTANTE
  *************************************************/
-function escapeHtml(s){
-  return String(s || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
+function actualizarFaltanteRow(row, esInicial = false){
+  const esperado = Number(row.dataset.cajonesEsperados || 0);
 
-/*************************************************
- * RENDER TALLERISTAS
- *************************************************/
-function renderTalleristas(lista){
-  talleristasGrid.innerHTML = "";
+  const inputCaj = row.querySelector(".input-caj");
+  const inputKg = row.querySelector('input[name^="kg_"]');
+  const box = row.querySelector(".faltante-box");
 
-  lista.forEach(nombre => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tallerista-btn";
-    btn.textContent = nombre;
+  if (!inputCaj || !box) return;
 
-    if (nombre === talleristaActivo){
-      btn.classList.add("active");
-    }
+  const cargadoCaj = parseInputNumber(inputCaj.value);
+  const cargadoKg = parseInputNumber(inputKg?.value);
 
-    btn.addEventListener("click", () => seleccionarTallerista(nombre));
-    talleristasGrid.appendChild(btn);
-  });
-}
+  const sinCarga =
+    (cargadoCaj === null || cargadoCaj === 0) &&
+    (cargadoKg === null || cargadoKg === 0);
 
-function seleccionarTallerista(nombre){
-  talleristaActivo = nombre;
-  renderTalleristas([nombre]);
-
-  if (btnVolver) btnVolver.classList.remove("hidden");
-
-  buscar(nombre);
-}
-
-function volverALista(){
-  talleristaActivo = "";
-  resultEl.innerHTML = "";
-
-  if (btnVolver) btnVolver.classList.add("hidden");
-  renderTalleristas(listaTalleristas);
-}
-
-if (btnVolver){
-  btnVolver.addEventListener("click", volverALista);
-}
-
-/*************************************************
- * CARGA INICIAL
- *************************************************/
-async function cargarTalleristas(){
-  resultEl.innerHTML = "";
-
-  const { data, error } = await supabaseClient
-    .from("v_piezas_por_tallerista_resumen")
-    .select("*")
-    .limit(5000);
-
-  if (error){
-    console.error("Error al cargar talleristas:", error);
+  // 🚫 IMPORTANTE: NO auto-F en carga inicial
+  if (!esInicial && sinCarga && esperado <= 0.4){
+    box.classList.add("active");
+    box.textContent = "F";
+    registrarCambioFila(row);
     return;
   }
 
-  listaTalleristas = [...new Set(
-    (data || [])
-      .map(r => String(pick(r, ["Tallerista", "tallerista", "TALLERISTA"]) || "").trim())
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, "es"));
+  if (cargadoCaj === null){
+    box.classList.remove("active");
+    box.textContent = "";
+    if (!esInicial) registrarCambioFila(row);
+    return;
+  }
 
-  renderTalleristas(listaTalleristas);
+  if (cargadoCaj < esperado){
+    box.classList.add("active");
+    box.textContent = "F";
+  } else {
+    box.classList.remove("active");
+    box.textContent = "";
+  }
+
+  if (!esInicial) registrarCambioFila(row);
 }
 
-/*************************************************
- * ENVÍO DE CAMBIOS
- *************************************************/
-function activarBotonEnviar(){
-  if (!btnEnviarCambios) return;
-
+function activarLogicaFaltante(){
   resultEl.querySelectorAll("tbody tr").forEach(row => {
-    const inputs = row.querySelectorAll("input");
-
-    inputs.forEach(input => {
-      input.addEventListener("input", () => {
-        btnEnviarCambios.classList.remove("hidden");
-        btnEnviarCambios.classList.add("enabled");
-      });
-    });
-  });
-}
-
-async function enviarCambios(){
-  if (!btnEnviarCambios) return;
-
-  const filas = [...resultEl.querySelectorAll("tbody tr")];
-  const registros = [];
-
-  filas.forEach(row => {
-    const tallerista = row.dataset.tallerista || "";
-    const sector = row.dataset.sector || "";
-    const descripcion = row.dataset.descripcion || "";
-
     const inputKg = row.querySelector(".input-kg");
     const inputCaj = row.querySelector(".input-caj");
     const box = row.querySelector(".faltante-box");
 
-    const kg = parseDecimal(inputKg?.value);
-    const cajones = parseDecimal(inputCaj?.value);
-    const faltante = box?.classList.contains("active") || false;
+    if (inputKg){
+      inputKg.addEventListener("input", () => {
+        inputKg.value = inputKg.value.replace(/[^0-9,.\-]/g, "");
+        registrarCambioFila(row);
+      });
+      inputKg.addEventListener("change", () => registrarCambioFila(row));
+    }
 
-    if (!kg && !cajones && !faltante) return;
+    if (inputCaj){
+      inputCaj.addEventListener("input", () => {
+        inputCaj.value = inputCaj.value.replace(/[^\d]/g, "");
+        actualizarFaltanteRow(row,true);
+      });
+      inputCaj.addEventListener("change", () => actualizarFaltanteRow(row));
+    }
 
-    const hoy = new Date();
-    const dia = String(hoy.getDate()).padStart(2, "0");
-    const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-    const diaMes = `${dia}/${mes}`;
+    if (box){
+      box.addEventListener("click", () => {
+        box.classList.toggle("active");
+        box.textContent = box.classList.contains("active") ? "F" : "";
+        registrarCambioFila(row);
+      });
+    }
 
-    registros.push({
-      "Dia-mes": diaMes,
-      "Tallerista": tallerista,
-      "Sector": sector,
-      "Descripcion": descripcion,
-      "KG": kg || 0,
-      "Cajones": cajones || 0,
-      "Faltante": faltante
-    });
+    actualizarFaltanteRow(row,true);
   });
-
-  if (!registros.length){
-    alert("No hay cambios para enviar");
-    return;
-  }
-
-  btnEnviarCambios.disabled = true;
-  btnEnviarCambios.textContent = "Enviando...";
-  
-console.log("Registros a insertar:", registros);
-
-const { error } = await supabaseClient
-  .from("Envios a Talleristas")
-  .insert(registros);
-
-if (error){
-  console.error("Error al enviar:", error);
-
-  alert(
-    "Error al guardar en Supabase:\n" +
-    (error.message || "") +
-    (error.details ? "\nDetalles: " + error.details : "") +
-    (error.hint ? "\nHint: " + error.hint : "")
-  );
-
-  btnEnviarCambios.disabled = false;
-  btnEnviarCambios.textContent = "Enviar";
-  btnEnviarCambios.classList.remove("enabled");
-  return;
-}
-
-  alert("Enviado correctamente");
-  btnEnviarCambios.disabled = false;
-  btnEnviarCambios.textContent = "Enviar";
-  btnEnviarCambios.classList.add("hidden");
-  btnEnviarCambios.classList.remove("enabled");
-
-  if (talleristaActivo){
-    await buscar(talleristaActivo);
-  }
-}
-
-if (btnEnviarCambios){
-  btnEnviarCambios.addEventListener("click", enviarCambios);
 }
 
 /*************************************************
@@ -715,12 +602,10 @@ async function buscar(nombreParam){
   const nombre = String(nombreParam || "").trim();
   if (!nombre) return;
 
-  if (btnEnviarCambios){
-    btnEnviarCambios.classList.add("hidden");
-    btnEnviarCambios.classList.remove("enabled");
-    btnEnviarCambios.disabled = false;
-    btnEnviarCambios.textContent = "Enviar";
-  }
+  filasModificadas.clear();
+  btnEnviarCambios.classList.add("hidden");
+  btnEnviarCambios.disabled = false;
+  btnEnviarCambios.textContent = "Enviar cambios";
 
   resultEl.innerHTML = "";
 
@@ -743,21 +628,19 @@ async function buscar(nombreParam){
     resultEl.innerHTML = `
       <div class="articulo">
         <div class="articulo-header">${escapeHtml(nombre)}</div>
-        <div class="empty-state">No hay datos para este tallerista.</div>
+        <div class="empty-state">No hay artículos con cajones a enviar mayores a 0.</div>
       </div>
     `;
     return;
   }
 
-  let consumoMap, sectoresData, stockMap, entregasData, enviosData;
+  let consumoMap, sectoresData, stockMap;
 
   try{
-    [consumoMap, sectoresData, stockMap, entregasData, enviosData] = await Promise.all([
+    [consumoMap, sectoresData, stockMap] = await Promise.all([
       cargarConsumos(),
       cargarSectores(),
-      cargarStockTallerista(),
-      cargarEntregas(),
-      cargarEnvios()
+      cargarStockTallerista()
     ]);
   }catch (err){
     console.error(err);
@@ -785,32 +668,11 @@ async function buscar(nombreParam){
 
     const maxCajones = calcularCajones(consumoTotal, kgXUni, partesXUni, kgXCajon);
 
-    const stockInicialKg = parseDecimal(
-      pick(r, [
-        "Stock Inicial",
-        "stock_inicial",
-        "stock inicial",
-        "Stock_Inicial"
-      ])
-    );
+    const stockOnlineUni = obtenerStockOnlineTallerista(nombre, codigos, stockMap);
+    const stockOnlineKg = stockOnlineUni * kgXUni;
+    const stockOnlineCaj = kgXCajon > 0 ? (stockOnlineKg / kgXCajon) : 0;
 
-    const enviosInfo = obtenerEnviosTallerista(nombre, sectorProce, descripcion, enviosData, kgXUni);
-    const totalEnviosUni = enviosInfo.totalUni;
-
-    const entregasInfo = obtenerEntregasTallerista(nombre, codigos, entregasData);
-    const totalEntregasUni = entregasInfo.totalUnidades;
-
-    const onlineUni = kgXUni > 0
-      ? (stockInicialKg / kgXUni) + totalEnviosUni - totalEntregasUni
-      : 0;
-
-    const onlineKg = onlineUni * kgXUni;
-
-    const onlineCaj = kgXCajon > 0
-      ? (onlineKg / kgXCajon)
-      : 0;
-
-    const cajonesEnviar = Math.max(0, maxCajones - onlineCaj);
+    const cajonesEnviar = Math.max(0, maxCajones - stockOnlineCaj);
 
     if (cajonesEnviar > 0){
       filasFiltradas.push({
@@ -837,6 +699,7 @@ async function buscar(nombreParam){
         data-tallerista="${escapeHtml(item.tallerista)}"
         data-sector="${escapeHtml(item.sector || "")}"
         data-descripcion="${escapeHtml(item.descripcion)}"
+        data-cajones-esperados="${Number(item.cajonesEnviar)}"
       >
         <td>${item.sector ? escapeHtml(item.sector) : '<span class="zero">Sin sector</span>'}</td>
         <td class="descripcion-cell">${escapeHtml(item.descripcion)}</td>
@@ -844,77 +707,169 @@ async function buscar(nombreParam){
         <td class="center">
           <div class="faltante-box" data-index="${index}"></div>
         </td>
+
         <td class="right">
-          <input
-            type="text"
-            inputmode="decimal"
-            class="cell-input cell-input-small input-kg"
-            placeholder="0,0"
-            name="kg_${index}"
-            autocomplete="off"
-          >
-        </td>
-        <td class="right">
-          <input
-            type="text"
-            inputmode="numeric"
-            class="cell-input cell-input-small input-caj"
-            placeholder="0"
-            name="caj_${index}"
-            autocomplete="off"
-          >
-        </td>
+  <input
+    type="text"
+    inputmode="decimal"
+    class="cell-input cell-input-small input-kg"
+    placeholder="0,0"
+    name="kg_${index}"
+    autocomplete="off"
+  >
+</td>
+<td class="right">
+  <input
+    type="text"
+    inputmode="numeric"
+    class="cell-input cell-input-small input-caj"
+    placeholder="0"
+    name="caj_${index}"
+    autocomplete="off"
+  >
+</td>
+        
       </tr>
     `;
   });
 
-  resultEl.innerHTML = `
-    <div class="articulo">
-      <div class="articulo-header">${escapeHtml(nombre)}</div>
-
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th><span class="th-wrap">SEC</span></th>
-              <th><span class="th-wrap">Descripción</span></th>
-              <th><span class="th-wrap">Cjn<br>a Env</span></th>
-              <th><span class="th-wrap">F</span></th>
-              <th><span class="th-wrap">Kg</span></th>
-              <th><span class="th-wrap">Caj</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || `
+  resultEl.innerHTML = filasFiltradas.length
+    ? `
+      <div class="articulo">
+        <div class="articulo-header">${escapeHtml(nombre)}</div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
               <tr>
-                <td colspan="6" class="center zero">No hay artículos con cajones a enviar mayores a 0.</td>
+                <th><span class="th-wrap">Sec</span></th>
+                <th><span class="th-wrap">Descripción</span></th>
+                <th class="right"><span class="th-wrap">Cjn<br>a Env.</span></th>
+                <th class="center"><span class="th-wrap">Falt</span></th>
+                <th class="right"><span class="th-wrap">Kg</span></th>
+                <th class="right"><span class="th-wrap">Caj</span></th>
               </tr>
-            `}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  `;
+    `
+    : `
+      <div class="articulo">
+        <div class="articulo-header">${escapeHtml(nombre)}</div>
+        <div class="empty-state">No hay artículos con cajones a enviar mayores a 0.</div>
+      </div>
+    `;
 
-  resultEl.querySelectorAll(".faltante-box").forEach(box => {
-    box.addEventListener("click", () => {
-      box.classList.toggle("active");
-      box.textContent = box.classList.contains("active") ? "F" : "";
-  
-      if (btnEnviarCambios){
-        btnEnviarCambios.classList.remove("hidden");
-        btnEnviarCambios.classList.add("enabled");
-      }
-    });
-  });
-
-  activarBotonEnviar();
+  activarLogicaFaltante();
 }
+
+/*******************************************************
+ * BOTON ENVIAR
+ *******************************************************/
+function obtenerClaveFila(row){
+  const tallerista = row.dataset.tallerista || "";
+  const sector = row.dataset.sector || "";
+  const descripcion = row.dataset.descripcion || "";
+  return `${tallerista}__${sector}__${descripcion}`;
+}
+
+function getDiaMesHoy(){
+  const hoy = new Date();
+  const dia = String(hoy.getDate()).padStart(2, "0");
+  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}`;
+}
+
+function registrarCambioFila(row){
+  const key = obtenerClaveFila(row);
+
+  const tallerista = row.dataset.tallerista || "";
+  const sector = row.dataset.sector || "";
+  const descripcion = row.dataset.descripcion || "";
+
+  const inputKg = row.querySelector('input[name^="kg_"]');
+  const inputCaj = row.querySelector('input[name^="caj_"]');
+  const faltanteBox = row.querySelector(".faltante-box");
+
+  const kgEnviar = parseInputNumber(inputKg?.value);
+  const cajEnviar = parseInputNumber(inputCaj?.value);
+  const faltante = !!faltanteBox?.classList.contains("active"); // true o false
+
+  const hayCambios =
+    (kgEnviar !== null && kgEnviar !== 0) ||
+    (cajEnviar !== null && cajEnviar !== 0) ||
+    faltante === true;
+
+  if (!hayCambios){
+    filasModificadas.delete(key);
+  } else {
+    filasModificadas.set(key, {
+      "Dia-mes": getDiaMesHoy(),
+      "Tallerista": tallerista,
+      "Sector": sector,
+      "Descripcion": descripcion,
+      "Faltante": faltante,
+      "KG": kgEnviar ?? 0,
+      "Cajones": cajEnviar ?? 0
+    });
+  }
+
+  btnEnviarCambios.classList.toggle("hidden", filasModificadas.size === 0);
+}
+
+async function enviarCambios(volverLuego = false){
+  if (!filasModificadas.size) return true;
+
+  btnEnviarCambios.disabled = true;
+  btnEnviarCambios.textContent = "Enviando...";
+
+  const payload = Array.from(filasModificadas.values());
+  console.log("Payload a insertar:", payload);
+
+  const { data, error } = await supabaseClient
+    .from(TABLA_DESTINO)
+    .insert(payload)
+    .select();
+
+  if (error){
+    console.error("Error al guardar cambios:", error);
+    alert(
+      "No se pudieron guardar los cambios.\n\n" +
+      "Mensaje: " + (error.message || "") + "\n" +
+      "Detalle: " + (error.details || "") + "\n" +
+      "Hint: " + (error.hint || "")
+    );
+    btnEnviarCambios.disabled = false;
+    btnEnviarCambios.textContent = "Enviar";
+    return false;
+  }
+
+  console.log("Insert ok:", data);
+  alert("Cambios enviados correctamente.");
+
+  filasModificadas.clear();
+  btnEnviarCambios.classList.add("hidden");
+  btnEnviarCambios.disabled = false;
+  btnEnviarCambios.textContent = "Enviar";
+
+  if (volverLuego){
+    talleristaActivo = "";
+    resultEl.innerHTML = "";
+    btnVolver.classList.add("hidden");
+    renderTalleristas(listaTalleristas);
+  } else if (talleristaActivo){
+    buscar(talleristaActivo);
+  }
+
+  return true;
+}
+
+btnEnviarCambios.addEventListener("click", enviarCambios);
 
 /*************************************************
  * INICIO
  *************************************************/
-document.addEventListener("DOMContentLoaded", () => {
-  cargarTalleristas();
-});
-
+cargarTalleristas();
