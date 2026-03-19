@@ -900,7 +900,7 @@ async function buscar(nombreParam){
     box.addEventListener("click", () => {
       box.classList.toggle("active");
       box.textContent = box.classList.contains("active") ? "F" : "";
-
+  
       if (btnEnviarCambios){
         btnEnviarCambios.classList.remove("hidden");
         btnEnviarCambios.classList.add("enabled");
