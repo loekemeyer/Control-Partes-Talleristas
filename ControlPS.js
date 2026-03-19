@@ -227,38 +227,87 @@ async function buscar(nombreParam){
   let rows = "";
 
   filasPS.forEach(item => {
-    rows += `
-      <tr>
-        <td>${item.proceso ? escapeHtml(item.proceso) : '<span class="zero">Sin proceso</span>'}</td>
-        <td>${escapeHtml(item.parte)}</td>
-        <td class="center">${item.sc ? escapeHtml(item.sc) : '<span class="zero">-</span>'}</td>
-        <td class="center">${item.sp ? escapeHtml(item.sp) : '<span class="zero">-</span>'}</td>
-      </tr>
-    `;
-  });
+rows += `
+  <tr>
+    <td class="center">${item.sc ? escapeHtml(item.sc) : '<span class="zero">-</span>'}</td>
+    <td class="center">${item.sp ? escapeHtml(item.sp) : '<span class="zero">-</span>'}</td>
+    <td>${escapeHtml(item.parte)}</td>
+
+    <td class="right"><b>${escapeHtml(formatDecimal(onlineKg))}</b></td>
+    <td class="right"><b>${escapeHtml(formatCajones(onlineCaj))}</b></td>
+    <td class="right"><b>${escapeHtml(formatNumber(onlineUni))}</b></td>
+
+    <td class="right"><b>${escapeHtml(formatCajones(cajonesEnviar))}</b></td>
+
+    <td class="center">
+      <div class="cell-combo">
+        <span class="cell-total">${escapeHtml(formatNumber(totalEnviosUni))}</span>
+        <button type="button" class="mini-popup-btn">+</button>
+      </div>
+    </td>
+
+    <td class="center">
+      <div class="cell-combo">
+        <span class="cell-total">${escapeHtml(formatNumber(totalEntregasUni))}</span>
+        <button type="button" class="mini-popup-btn">+</button>
+      </div>
+    </td>
+
+    <td class="right"><b>${escapeHtml(formatDecimal(stockInicialKg))}</b></td>
+    <td class="right"><b>${escapeHtml(formatDecimal(kgXUni))}</b></td>
+    <td class="right"><b>${escapeHtml(formatDecimal(kgXCajon))}</b></td>
+  </tr>
+`;
 
   setStatus(`Encontradas ${filasPS.length} partes`);
 
   resultEl.innerHTML = `
-    <div class="articulo">
-      <div class="articulo-header">${escapeHtml(nombre)}</div>
+  <div class="articulo">
+    <div class="articulo-header">${escapeHtml(nombre)}</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th colspan="3">Base</th>
+          <th colspan="3" class="right">Online</th>
+          <th colspan="1" class="right">Enviar</th>
+          <th colspan="2" class="center">Movimientos (Uni)</th>
+          <th colspan="3" class="right">Info</th>
+        </tr>
+        <tr>
+          <th>SC</th>
+          <th>SP</th>
+          <th>Descripción</th>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Proceso</th>
-            <th>Parte</th>
-            <th>SC</th>
-            <th>SP</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
+          <th class="right">Kg</th>
+          <th class="right">Caj</th>
+          <th class="right">Uni</th>
+
+          <th class="right">Cjn a Env</th>
+
+          <th class="center">Envíos</th>
+          <th class="center">Entregas</th>
+
+          <th class="right">Stock<br>Inicial</th>
+          <th class="right">Kg x<br>Uni</th>
+          <th class="right">Kg x<br>Cajón</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="popupOverlay" class="popup-overlay hidden">
+    <div class="popup-box">
+      <div class="popup-head">
+        <div id="popupTitle" class="popup-title"></div>
+        <button id="popupClose" type="button" class="popup-close">✕</button>
+      </div>
+      <div id="popupBody" class="popup-body"></div>
     </div>
-  `;
-}
+  </div>
+`;
 
 /*************************************************
  * INIT
