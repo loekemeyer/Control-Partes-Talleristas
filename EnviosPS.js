@@ -178,7 +178,7 @@ function renderTable(items) {
   if (!items.length) {
     resultBody.innerHTML = `
       <tr>
-        <td colspan="5" style="text-align:center;color:#b42318;font-weight:700;">
+        <td colspan="6" style="text-align:center;color:#b42318;font-weight:700;">
           No hay partes para este proveedor.
         </td>
       </tr>
@@ -302,7 +302,7 @@ async function seleccionarPS(ps) {
 
     if (fetchedItems.length) {
       setStatus("Proveedor cargado correctamente.", "ok");
-      setTableMsg("Completá solo cajones enteros mayores a 0.");
+      setTableMsg("Completá KG y Cajones. Si cargás uno, debés completar ambos.");
     } else {
       setStatus("No hay partes para ese proveedor.", "bad");
       setTableMsg("No hay partes para ese proveedor.", "bad");
@@ -355,7 +355,7 @@ function filterItemsToSend(items) {
   return items.filter(it => {
     const caj = Number(it.cajones || 0);
     const kg = Number(it.kg || 0);
-    return caj > 0 || kg > 0;
+    return caj > 0 && kg > 0;
   });
 }
 function getDiaMesHoy() {
@@ -383,17 +383,43 @@ btnEnviarCambios.addEventListener("click", async () => {
   if (isSubmitting) return;
 
   const rawItems = getItemsFromTable();
-  const items = filterItemsToSend(rawItems);
 
-  if (!selectedPS) {
-    setTableMsg("Seleccioná un proveedor.", "bad");
-    return;
-  }
+if (!selectedPS) {
+  setTableMsg("Seleccioná un proveedor.", "bad");
+  return;
+}
 
-  if (!items.length) {
-    setTableMsg("Completá al menos KG o Caj (> 0).", "bad");
-    return;
-  }
+// ❌ 1. Todo vacío
+const todosVacios = rawItems.every(it => {
+  const caj = Number(it.cajones || 0);
+  const kg = Number(it.kg || 0);
+  return caj === 0 && kg === 0;
+});
+
+if (todosVacios) {
+  setTableMsg("Completá al menos una fila con KG y Cajones.", "bad");
+  return;
+}
+
+// ❌ 2. Hay filas incompletas
+const hayIncompletos = rawItems.some(it => {
+  const caj = Number(it.cajones || 0);
+  const kg = Number(it.kg || 0);
+
+  return (caj > 0 && kg === 0) || (kg > 0 && caj === 0);
+});
+
+if (hayIncompletos) {
+  setTableMsg("Si cargás KG o Cajones, debés completar ambos.", "bad");
+  return;
+}
+
+// ✅ 3. Solo filas válidas
+const items = rawItems.filter(it => {
+  const caj = Number(it.cajones || 0);
+  const kg = Number(it.kg || 0);
+  return caj > 0 && kg > 0;
+});
 
   const detalle = items
     .map(it => `${it.parte} - ${it.proceso} - SC ${it.sc} - SP ${it.sp} - KG ${it.kg || 0} - Caj ${it.cajones || 0}`)
