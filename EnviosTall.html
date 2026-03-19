@@ -15,33 +15,31 @@
 
   <div class="card">
 
-    <!-- HEADER -->
+   <!-- HEADER -->
     <div class="header-bar">
-
-      <div class="header-left">
-
+    
+      <div class="header-side header-left-zone">
         <button onclick="window.location.href='index.html'" class="tallerista-btn btn-volver-home">
           ← Inicio
         </button>
-
-        <h1>Envios por Tallerista</h1>
-
-        <button id="btnEnviarCambios" class="btn-enviar hidden" type="button">
-          Enviar
-        </button>
-
-      </div>
-
-      <div class="header-right">
-
+    
         <button id="btnVolver" class="btn-volver hidden" type="button">
           ← Cambiar tallerista
         </button>
-
-        <div id="talleristasGrid" class="talleristas-grid"></div>
-
       </div>
-
+    
+      <div class="header-center">
+        <h1>Envios por Tallerista</h1>
+      </div>
+    
+      <div class="header-side header-right-zone">
+        <div id="talleristasGrid" class="talleristas-grid"></div>
+    
+        <button id="btnEnviarCambios" class="btn-enviar hidden" type="button">
+          Enviar
+        </button>
+      </div>
+    
     </div>
 
     <!-- RESULTADO -->
