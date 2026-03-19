@@ -51,10 +51,16 @@ function formatNumber(n){
 }
 
 function formatDecimal(n){
-  return Number(n || 0).toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3
-  });
+  let num = Number(n || 0);
+
+  let s = String(num);
+
+  if (!s.includes(".")) return s;
+
+  let [int, dec] = s.split(".");
+  dec = dec.slice(0, 3);
+
+  return dec ? `${int},${dec}` : int;
 }
 
 function formatCajones(n){
@@ -176,7 +182,7 @@ async function cargarEnviosPS(){
     if (!provServ || !sectorSP) return;
     if (!kg && !cajones) return;
 
-    const key = `${provServ}__${sectorSP}__${parte}`;
+    const key = `${provServ}__${sectorSP}`;
 
     if (!detalleMap.has(key)) detalleMap.set(key, []);
     detalleMap.get(key).push({ fecha, kg, cajones });
@@ -196,7 +202,7 @@ async function cargarEnviosPS(){
 }
 
 function obtenerEnviosPS(ps, sp, parte, enviosData, kgXUni){
-  const key = `${normalizeText(ps)}__${normalizeText(sp)}__${normalizeText(parte)}`;
+  const key = `${normalizeText(ps)}__${normalizeText(sp)}`;
 
   const totalKg = Number(enviosData.totalKgMap.get(key) || 0);
   const totalCaj = Number(enviosData.totalCajMap.get(key) || 0);
