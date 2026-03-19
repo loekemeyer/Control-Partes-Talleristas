@@ -3,18 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Piezas por Tallerista</title>
+  <title>Control Proveedores de Servicios</title>
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="ControlPS.css" />
 </head>
 <body>
 
   <div class="card">
-    <h1>Piezas por Tallerista</h1>
+
+    <h1>Control Proveedores de Servicios</h1>
 
     <div class="row-tools">
-      <button id="btnVolver" class="btn-volver hidden" type="button">← Cambiar tallerista</button>
+      <button id="btnVolver" class="btn-volver hidden" type="button">
+        ← Cambiar proveedor
+      </button>
     </div>
 
     <div class="row">
@@ -22,9 +28,13 @@
     </div>
 
     <div id="status" class="status"></div>
+
     <div id="result"></div>
+
   </div>
 
+  <!-- JS -->
   <script src="ControlPS.js"></script>
+
 </body>
 </html>
