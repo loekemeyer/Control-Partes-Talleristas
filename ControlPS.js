@@ -6,7 +6,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /*************************************************
  * TABLA BASE
  *************************************************/
-const TABLA_PARTES_SP = "Partes x PS";
+const TABLA_PARTES_PS = "Partes x PS";
 
 const COL_PS = "PS";
 const COL_PARTE = "Parte";
@@ -25,34 +25,34 @@ const btnVolver = document.getElementById("btnVolver");
 /*************************************************
  * STATE
  *************************************************/
-let partesSPCache = null;
+let partesPSCache = null;
 let psActivo = "";
 let listaPS = [];
 
 /*************************************************
  * HELPERS
  *************************************************/
-function setStatus(t){
+function setStatus(t) {
   statusEl.textContent = t || "";
 }
 
-function escapeHtml(s){
+function escapeHtml(s) {
   return String(s || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
 
-function pick(obj, keys){
-  for (const k of keys){
-    if (obj && Object.prototype.hasOwnProperty.call(obj, k)){
+function pick(obj, keys) {
+  for (const k of keys) {
+    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
       return obj[k];
     }
   }
   return undefined;
 }
 
-function normalizeText(value){
+function normalizeText(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
@@ -61,7 +61,7 @@ function normalizeText(value){
     .replace(/\s+/g, " ");
 }
 
-function buildParteKey(ps, parte, proceso, sc, sp){
+function buildParteKey(ps, parte, proceso, sc, sp) {
   return [
     normalizeText(ps),
     normalizeText(parte),
@@ -74,7 +74,7 @@ function buildParteKey(ps, parte, proceso, sc, sp){
 /*************************************************
  * RENDER PS
  *************************************************/
-function renderPS(lista){
+function renderPS(lista) {
   talleristasGrid.innerHTML = "";
 
   lista.forEach(nombre => {
@@ -83,7 +83,7 @@ function renderPS(lista){
     btn.className = "tallerista-btn";
     btn.textContent = nombre;
 
-    if (nombre === psActivo){
+    if (nombre === psActivo) {
       btn.classList.add("active");
     }
 
@@ -92,14 +92,14 @@ function renderPS(lista){
   });
 }
 
-function seleccionarPS(nombre){
+function seleccionarPS(nombre) {
   psActivo = nombre;
   renderPS([nombre]);
   btnVolver.classList.remove("hidden");
   buscar(nombre);
 }
 
-function volverALista(){
+function volverALista() {
   psActivo = "";
   resultEl.innerHTML = "";
   setStatus("Seleccioná un proveedor");
@@ -112,16 +112,16 @@ btnVolver.addEventListener("click", volverALista);
 /*************************************************
  * CARGA LISTA PS
  *************************************************/
-async function cargarPS(){
+async function cargarPS() {
   setStatus("Cargando proveedores...");
   resultEl.innerHTML = "";
 
   const { data, error } = await supabaseClient
-    .from(TABLA_PARTES_SP)
+    .from(TABLA_PARTES_PS)
     .select(COL_PS)
     .limit(5000);
 
-  if (error){
+  if (error) {
     console.error(error);
     setStatus("Error al cargar proveedores: " + (error.message || "sin detalle"));
     return;
@@ -140,17 +140,17 @@ async function cargarPS(){
 /*************************************************
  * CARGA PARTES x PS
  *************************************************/
-async function cargarPartesSP(){
-  if (partesSPCache) return partesSPCache;
+async function cargarPartesPS() {
+  if (partesPSCache) return partesPSCache;
 
   const { data, error } = await supabaseClient
-    .from(TABLA_PARTES_SP)
+    .from(TABLA_PARTES_PS)
     .select("*")
     .limit(20000);
 
-  if (error){
+  if (error) {
     console.error(error);
-    throw new Error("Error al leer " + TABLA_PARTES_SP);
+    throw new Error("Error al leer " + TABLA_PARTES_PS);
   }
 
   const partes = [];
@@ -179,17 +179,17 @@ async function cargarPartesSP(){
     });
   });
 
-  partesSPCache = partes;
-  return partesSPCache;
+  partesPSCache = partes;
+  return partesPSCache;
 }
 
 /*************************************************
  * BUSQUEDA PRINCIPAL
  *************************************************/
-async function buscar(nombreParam){
+async function buscar(nombreParam) {
   const nombre = String(nombreParam || "").trim();
 
-  if (!nombre){
+  if (!nombre) {
     setStatus("Seleccioná un proveedor");
     return;
   }
@@ -197,26 +197,35 @@ async function buscar(nombreParam){
   resultEl.innerHTML = "";
   setStatus("Buscando...");
 
-  let partesSP;
+  let partesPS;
 
-  try{
-    partesSP = await cargarPartesSP();
-  }catch (err){
+  try {
+    partesPS = await cargarPartesPS();
+  } catch (err) {
     console.error(err);
     setStatus(err.message || "Error al cargar datos");
     return;
   }
 
-  const filasPS = partesSP
+  const filasPS = partesPS
     .filter(x => x.ps === nombre)
     .sort((a, b) => {
-      const pa = String(a.proceso || "");
-      const pb = String(b.proceso || "");
-      if (pa !== pb) return pa.localeCompare(pb, "es");
-      return String(a.parte || "").localeCompare(String(b.parte || ""), "es");
+      const scA = String(a.sc || "");
+      const scB = String(b.sc || "");
+      if (scA !== scB) return scA.localeCompare(scB, "es");
+
+      const spA = String(a.sp || "");
+      const spB = String(b.sp || "");
+      if (spA !== spB) return spA.localeCompare(spB, "es");
+
+      const parteA = String(a.parte || "");
+      const parteB = String(b.parte || "");
+      if (parteA !== parteB) return parteA.localeCompare(parteB, "es");
+
+      return String(a.proceso || "").localeCompare(String(b.proceso || ""), "es");
     });
 
-  if (!filasPS.length){
+  if (!filasPS.length) {
     setStatus("No encontré partes para este proveedor");
     resultEl.innerHTML = "";
     return;
@@ -225,87 +234,38 @@ async function buscar(nombreParam){
   let rows = "";
 
   filasPS.forEach(item => {
-rows += `
-  <tr>
-    <td class="center">${item.sc ? escapeHtml(item.sc) : '<span class="zero">-</span>'}</td>
-    <td class="center">${item.sp ? escapeHtml(item.sp) : '<span class="zero">-</span>'}</td>
-    <td>${escapeHtml(item.parte)}</td>
-
-    <td class="right"><b>${escapeHtml(formatDecimal(onlineKg))}</b></td>
-    <td class="right"><b>${escapeHtml(formatCajones(onlineCaj))}</b></td>
-    <td class="right"><b>${escapeHtml(formatNumber(onlineUni))}</b></td>
-
-    <td class="right"><b>${escapeHtml(formatCajones(cajonesEnviar))}</b></td>
-
-    <td class="center">
-      <div class="cell-combo">
-        <span class="cell-total">${escapeHtml(formatNumber(totalEnviosUni))}</span>
-        <button type="button" class="mini-popup-btn">+</button>
-      </div>
-    </td>
-
-    <td class="center">
-      <div class="cell-combo">
-        <span class="cell-total">${escapeHtml(formatNumber(totalEntregasUni))}</span>
-        <button type="button" class="mini-popup-btn">+</button>
-      </div>
-    </td>
-
-    <td class="right"><b>${escapeHtml(formatDecimal(stockInicialKg))}</b></td>
-    <td class="right"><b>${escapeHtml(formatDecimal(kgXUni))}</b></td>
-    <td class="right"><b>${escapeHtml(formatDecimal(kgXCajon))}</b></td>
-  </tr>
-`;
+    rows += `
+      <tr>
+        <td class="center">${item.sc ? escapeHtml(item.sc) : '<span class="zero">-</span>'}</td>
+        <td class="center">${item.sp ? escapeHtml(item.sp) : '<span class="zero">-</span>'}</td>
+        <td>${escapeHtml(item.parte)}</td>
+        <td>${item.proceso ? escapeHtml(item.proceso) : '<span class="zero">Sin proceso</span>'}</td>
+      </tr>
+    `;
+  });
 
   setStatus(`Encontradas ${filasPS.length} partes`);
 
   resultEl.innerHTML = `
-  <div class="articulo">
-    <div class="articulo-header">${escapeHtml(nombre)}</div>
-    <table class="table">
-      <thead>
-        <tr>
-          <th colspan="3">Base</th>
-          <th colspan="3" class="right">Online</th>
-          <th colspan="1" class="right">Enviar</th>
-          <th colspan="2" class="center">Movimientos (Uni)</th>
-          <th colspan="3" class="right">Info</th>
-        </tr>
-        <tr>
-          <th>SC</th>
-          <th>SP</th>
-          <th>Descripción</th>
+    <div class="articulo">
+      <div class="articulo-header">${escapeHtml(nombre)}</div>
 
-          <th class="right">Kg</th>
-          <th class="right">Caj</th>
-          <th class="right">Uni</th>
-
-          <th class="right">Cjn a Env</th>
-
-          <th class="center">Envíos</th>
-          <th class="center">Entregas</th>
-
-          <th class="right">Stock<br>Inicial</th>
-          <th class="right">Kg x<br>Uni</th>
-          <th class="right">Kg x<br>Cajón</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  </div>
-
-  <div id="popupOverlay" class="popup-overlay hidden">
-    <div class="popup-box">
-      <div class="popup-head">
-        <div id="popupTitle" class="popup-title"></div>
-        <button id="popupClose" type="button" class="popup-close">✕</button>
-      </div>
-      <div id="popupBody" class="popup-body"></div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>SC</th>
+            <th>SP</th>
+            <th>Descripción</th>
+            <th>Proceso</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
     </div>
-  </div>
-`;
+  `;
+}
 
 /*************************************************
  * INIT
