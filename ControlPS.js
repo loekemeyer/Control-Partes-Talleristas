@@ -61,8 +61,6 @@ function formatDecimal(n){
   return value.toLocaleString("es-AR", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
   });
 }
 
