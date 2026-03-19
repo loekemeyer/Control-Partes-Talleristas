@@ -86,7 +86,9 @@ async function cargarSPKG(){
   const map = new Map();
 
   data.forEach(r=>{
-    const key = (r.Parte+"_"+r.Sp).toLowerCase();
+    const key = String(r.Sp || "").trim().toLowerCase();
+    if (!key) return;
+  
     map.set(key,{
       kgUni: num(r["Kg x UNI"]),
       kgCaj: num(r["Kg Cajon"])
@@ -112,8 +114,8 @@ async function seleccionar(ps){
   let rows = "";
 
   filas.forEach(item=>{
-    const key = (item.Parte+"_"+item.SP).toLowerCase();
-    const info = spKg.get(key) || {kgUni:0,kgCaj:0};
+    const key = String(item.SP || "").trim().toLowerCase();
+    const info = spKg.get(key) || { kgUni: 0, kgCaj: 0 };
 
     const onlineKg = 0;
     const onlineCaj = 0;
