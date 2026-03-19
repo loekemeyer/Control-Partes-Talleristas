@@ -104,7 +104,8 @@ td:nth-child(7),
 td:nth-child(8),
 td:nth-child(9),
 td:nth-child(10),
-td:nth-child(11){
+td:nth-child(11),
+td:nth-child(12){
   text-align:center;
 }
 
