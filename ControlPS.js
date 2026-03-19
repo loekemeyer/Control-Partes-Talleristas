@@ -70,7 +70,7 @@ function formatCajones(n){
   });
 }
 btnIndex.onclick = ()=>{
-  window.location.href = "/";
+  window.location.href = "index.html";
 };
 function normalizeText(value){
   return String(value || "")
