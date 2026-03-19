@@ -1,276 +1,191 @@
-alert("VERSION NUEVA CONTROL PS - SIN CACHE");
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /*************************************************
- * TABLA BASE
+ * TABLAS
  *************************************************/
-const TABLA_PARTES_PS = "Partes x PS";
-
-const COL_PS = "PS";
-const COL_PARTE = "Parte";
-const COL_PROCESO = "Proceso";
-const COL_SC = "SC";
-const COL_SP = "SP";
+const TABLA_PARTES = "Partes x PS";
+const TABLA_SP_KG = "SP Kg";
 
 /*************************************************
  * DOM
  *************************************************/
-const talleristasGrid = document.getElementById("talleristasGrid");
-const statusEl = document.getElementById("status");
+const grid = document.getElementById("talleristasGrid");
 const resultEl = document.getElementById("result");
+const statusEl = document.getElementById("status");
 const btnVolver = document.getElementById("btnVolver");
 
 /*************************************************
  * STATE
  *************************************************/
-let partesPSCache = null;
-let psActivo = "";
+let partesCache = null;
+let spKgCache = null;
 let listaPS = [];
+let psActivo = "";
 
 /*************************************************
  * HELPERS
  *************************************************/
-function setStatus(t) {
-  statusEl.textContent = t || "";
-}
+function setStatus(t){ statusEl.textContent = t || ""; }
 
-function escapeHtml(s) {
+function escapeHtml(s){
   return String(s || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;");
 }
 
-function pick(obj, keys) {
-  for (const k of keys) {
-    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
-      return obj[k];
-    }
+function pick(o,k){
+  for(const key of k){
+    if(o && key in o) return o[key];
   }
-  return undefined;
+  return "";
 }
 
-function normalizeText(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function buildParteKey(ps, parte, proceso, sc, sp) {
-  return [
-    normalizeText(ps),
-    normalizeText(parte),
-    normalizeText(proceso),
-    normalizeText(sc),
-    normalizeText(sp)
-  ].join("__");
-}
-
-/*************************************************
- * RENDER PS
- *************************************************/
-function renderPS(lista) {
-  talleristasGrid.innerHTML = "";
-
-  lista.forEach(nombre => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tallerista-btn";
-    btn.textContent = nombre;
-
-    if (nombre === psActivo) {
-      btn.classList.add("active");
-    }
-
-    btn.addEventListener("click", () => seleccionarPS(nombre));
-    talleristasGrid.appendChild(btn);
-  });
-}
-
-function seleccionarPS(nombre) {
-  psActivo = nombre;
-  renderPS([nombre]);
-  btnVolver.classList.remove("hidden");
-  buscar(nombre);
-}
-
-function volverALista() {
-  psActivo = "";
-  resultEl.innerHTML = "";
-  setStatus("Seleccioná un proveedor");
-  btnVolver.classList.add("hidden");
-  renderPS(listaPS);
-}
-
-btnVolver.addEventListener("click", volverALista);
+function num(n){ return Number(n||0); }
 
 /*************************************************
  * CARGA LISTA PS
  *************************************************/
-async function cargarPS() {
-  setStatus("Cargando proveedores...");
-  resultEl.innerHTML = "";
+async function cargarPS(){
+  const { data } = await supabaseClient.from(TABLA_PARTES).select("PS");
 
-  const { data, error } = await supabaseClient
-    .from(TABLA_PARTES_PS)
-    .select(COL_PS)
-    .limit(5000);
+  listaPS = [...new Set(data.map(x => x.PS).filter(Boolean))].sort();
 
-  if (error) {
-    console.error(error);
-    setStatus("Error al cargar proveedores: " + (error.message || "sin detalle"));
-    return;
-  }
+  grid.innerHTML = "";
+  listaPS.forEach(ps=>{
+    const b = document.createElement("button");
+    b.className = "tallerista-btn";
+    b.textContent = ps;
+    b.onclick = ()=>seleccionar(ps);
+    grid.appendChild(b);
+  });
 
-  listaPS = [...new Set(
-    (data || [])
-      .map(r => String(r[COL_PS] || "").trim())
-      .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, "es"));
-
-  renderPS(listaPS);
-  setStatus(listaPS.length ? "Seleccioná un proveedor" : "No se encontraron proveedores");
+  setStatus("Seleccioná un proveedor");
 }
 
 /*************************************************
- * CARGA PARTES x PS
+ * CACHE
  *************************************************/
-async function cargarPartesPS() {
-  if (partesPSCache) return partesPSCache;
+async function cargarPartes(){
+  if(partesCache) return partesCache;
 
-  const { data, error } = await supabaseClient
-    .from(TABLA_PARTES_PS)
-    .select("*")
-    .limit(20000);
+  const { data } = await supabaseClient.from(TABLA_PARTES).select("*");
 
-  if (error) {
-    console.error(error);
-    throw new Error("Error al leer " + TABLA_PARTES_PS);
-  }
+  partesCache = data;
+  return data;
+}
 
-  const partes = [];
-  const seen = new Set();
+async function cargarSPKG(){
+  if(spKgCache) return spKgCache;
 
-  (data || []).forEach(r => {
-    const ps = String(pick(r, [COL_PS, "ps"]) || "").trim();
-    const parte = String(pick(r, [COL_PARTE, "parte"]) || "").trim();
-    const proceso = String(pick(r, [COL_PROCESO, "proceso"]) || "").trim();
-    const sc = String(pick(r, [COL_SC, "sc"]) || "").trim();
-    const sp = String(pick(r, [COL_SP, "sp"]) || "").trim();
+  const { data } = await supabaseClient.from(TABLA_SP_KG).select("*");
 
-    if (!ps || !parte) return;
+  const map = new Map();
 
-    const key = buildParteKey(ps, parte, proceso, sc, sp);
-    if (seen.has(key)) return;
-    seen.add(key);
-
-    partes.push({
-      ps,
-      parte,
-      proceso,
-      sc,
-      sp,
-      key
+  data.forEach(r=>{
+    const key = (r.Parte+"_"+r.Sp).toLowerCase();
+    map.set(key,{
+      kgUni: num(r["Kg x UNI"]),
+      kgCaj: num(r["Kg Cajon"])
     });
   });
 
-  partesPSCache = partes;
-  return partesPSCache;
+  spKgCache = map;
+  return map;
 }
 
 /*************************************************
- * BUSQUEDA PRINCIPAL
+ * SELECCION
  *************************************************/
-async function buscar(nombreParam) {
-  const nombre = String(nombreParam || "").trim();
+async function seleccionar(ps){
+  psActivo = ps;
+  btnVolver.classList.remove("hidden");
 
-  if (!nombre) {
-    setStatus("Seleccioná un proveedor");
-    return;
-  }
+  const partes = await cargarPartes();
+  const spKg = await cargarSPKG();
 
-  resultEl.innerHTML = "";
-  setStatus("Buscando...");
-
-  let partesPS;
-
-  try {
-    partesPS = await cargarPartesPS();
-  } catch (err) {
-    console.error(err);
-    setStatus(err.message || "Error al cargar datos");
-    return;
-  }
-
-  const filasPS = partesPS
-    .filter(x => x.ps === nombre)
-    .sort((a, b) => {
-      const scA = String(a.sc || "");
-      const scB = String(b.sc || "");
-      if (scA !== scB) return scA.localeCompare(scB, "es");
-
-      const spA = String(a.sp || "");
-      const spB = String(b.sp || "");
-      if (spA !== spB) return spA.localeCompare(spB, "es");
-
-      const parteA = String(a.parte || "");
-      const parteB = String(b.parte || "");
-      if (parteA !== parteB) return parteA.localeCompare(parteB, "es");
-
-      return String(a.proceso || "").localeCompare(String(b.proceso || ""), "es");
-    });
-
-  if (!filasPS.length) {
-    setStatus("No encontré partes para este proveedor");
-    resultEl.innerHTML = "";
-    return;
-  }
+  const filas = partes.filter(x => x.PS === ps);
 
   let rows = "";
 
-  filasPS.forEach(item => {
+  filas.forEach(item=>{
+    const key = (item.Parte+"_"+item.SP).toLowerCase();
+    const info = spKg.get(key) || {kgUni:0,kgCaj:0};
+
+    const onlineKg = 0;
+    const onlineCaj = 0;
+    const onlineUni = 0;
+    const enviar = 0;
+
     rows += `
-      <tr>
-        <td class="center">${item.sc ? escapeHtml(item.sc) : '<span class="zero">-</span>'}</td>
-        <td class="center">${item.sp ? escapeHtml(item.sp) : '<span class="zero">-</span>'}</td>
-        <td>${escapeHtml(item.parte)}</td>
-        <td>${item.proceso ? escapeHtml(item.proceso) : '<span class="zero">Sin proceso</span>'}</td>
-      </tr>
-    `;
+    <tr>
+      <td>${escapeHtml(item.SC)}</td>
+      <td>${escapeHtml(item.SP)}</td>
+      <td>${escapeHtml(item.Parte)}</td>
+
+      <td>${onlineKg}</td>
+      <td>${onlineCaj}</td>
+      <td>${onlineUni}</td>
+
+      <td>${enviar}</td>
+
+      <td>0</td>
+      <td>0</td>
+
+      <td>${info.kgUni}</td>
+      <td>${info.kgCaj}</td>
+    </tr>`;
   });
 
-  setStatus(`Encontradas ${filasPS.length} partes`);
-
   resultEl.innerHTML = `
-    <div class="articulo">
-      <div class="articulo-header">${escapeHtml(nombre)}</div>
+  <div class="articulo">
+    <div class="articulo-header">${ps}</div>
 
-      <table class="table">
-        <thead>
-          <tr>
-            <th>SC</th>
-            <th>SP</th>
-            <th>Descripción</th>
-            <th>Proceso</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-  `;
+    <table class="table">
+      <thead>
+        <tr>
+          <th colspan="3">Base</th>
+          <th colspan="3">Online</th>
+          <th>Enviar</th>
+          <th colspan="2">Movimientos</th>
+          <th colspan="2">Info</th>
+        </tr>
+        <tr>
+          <th>SC</th>
+          <th>SP</th>
+          <th>Descripción</th>
+
+          <th>Kg</th>
+          <th>Caj</th>
+          <th>Uni</th>
+
+          <th>Cjn</th>
+
+          <th>Env</th>
+          <th>Ent</th>
+
+          <th>Kg x Uni</th>
+          <th>Kg x Caj</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
 }
+
+/*************************************************
+ * VOLVER
+ *************************************************/
+btnVolver.onclick = ()=>{
+  psActivo = "";
+  resultEl.innerHTML = "";
+  btnVolver.classList.add("hidden");
+};
 
 /*************************************************
  * INIT
  *************************************************/
-document.addEventListener("DOMContentLoaded", () => {
-  cargarPS();
-});
+document.addEventListener("DOMContentLoaded", cargarPS);
