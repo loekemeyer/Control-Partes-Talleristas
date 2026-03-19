@@ -16,7 +16,7 @@ const grid = document.getElementById("talleristasGrid");
 const resultEl = document.getElementById("result");
 const statusEl = document.getElementById("status");
 const btnVolver = document.getElementById("btnVolver");
-
+const btnIndex = document.getElementById("btnIndex");
 /*************************************************
  * STATE
  *************************************************/
@@ -69,7 +69,9 @@ function formatCajones(n){
     maximumFractionDigits: 2
   });
 }
-
+btnIndex.onclick = ()=>{
+  window.location.href = "/";
+};
 function normalizeText(value){
   return String(value || "")
     .trim()
