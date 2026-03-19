@@ -444,25 +444,33 @@ const items = rawItems.filter(it => {
     isSubmitting = true;
     btnEnviarCambios.disabled = true;
     btnEnviarCambios.classList.remove("enabled");
-
+  
     setTableMsg("Guardando en base de datos...", "");
     setStatus("Guardando en base de datos...", "");
-
+  
+    const codigo = genNumericCode(4);
+    lastSendCode = codigo;
+  
     const { error } = await sb
       .from(TABLA_DESTINO)
       .insert(payload);
-
+  
     if (error) throw error;
-
+  
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
-
+  
     setStatus("Enviado correctamente.", "ok");
     setTableMsg("Enviado correctamente.", "ok");
-
-    const codigo = genNumericCode(4);
-    lastSendCode = codigo;
+  
     showSuccess(codigo);
+  
+    imprimirComprobante({
+      codigo,
+      proveedor: selectedPS,
+      fecha: getDiaMesHoy(),
+      items
+    });
   } catch (e) {
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
@@ -498,3 +506,114 @@ async function init() {
 
 showSelectionView();
 init();
+function imprimirComprobante({ codigo, proveedor, fecha, items }) {
+  const detalleRows = items.map(it => `
+    <tr>
+      <td>${escapeHtml(it.parte || "")}</td>
+      <td>${escapeHtml(it.proceso || "")}</td>
+      <td>${escapeHtml(it.sc || "")}</td>
+      <td>${escapeHtml(it.sp || "")}</td>
+      <td style="text-align:right;">${Number(it.kg || 0)}</td>
+      <td style="text-align:right;">${Number(it.cajones || 0)}</td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <title>Comprobante envío ${codigo}</title>
+      <style>
+        body{
+          font-family: Arial, sans-serif;
+          margin: 30px;
+          color: #111;
+        }
+        h1{
+          margin: 0 0 8px;
+          font-size: 22px;
+        }
+        .meta{
+          margin-bottom: 18px;
+          line-height: 1.6;
+          font-size: 14px;
+        }
+        table{
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+          font-size: 13px;
+        }
+        th, td{
+          border: 1px solid #999;
+          padding: 8px;
+          vertical-align: middle;
+        }
+        th{
+          background: #f1f1f1;
+          text-align: left;
+        }
+        .foot{
+          margin-top: 20px;
+          font-size: 12px;
+          color: #444;
+        }
+        @media print {
+          body{
+            margin: 15px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Comprobante de Envío</h1>
+
+      <div style="font-size:18px; margin-bottom:10px;">
+        <strong>Código:</strong> ${escapeHtml(codigo)}
+      </div>
+      
+      <div class="meta">
+        <div><strong>Fecha:</strong> ${escapeHtml(fecha)}</div>
+        <div><strong>Proveedor:</strong> ${escapeHtml(proveedor)}</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Parte</th>
+            <th>Proceso</th>
+            <th>SC</th>
+            <th>SP</th>
+            <th>KG</th>
+            <th>Cajones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detalleRows}
+        </tbody>
+      </table>
+
+      <div class="foot">
+        Comprobante generado automáticamente por el sistema.
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    alert("El navegador bloqueó la ventana de impresión.");
+    return;
+  }
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
