@@ -326,8 +326,9 @@ function getItemsFromTable() {
   return fetchedItems.map((item, i) => {
     const input = resultBody.querySelector(`input[data-role="cajones"][data-idx="${i}"]`);
     const cajones = String(input?.value || "").trim();
+
     const kgInput = resultBody.querySelector(`input[data-role="kg"][data-idx="${i}"]`);
-const kg = String(kgInput?.value || "").trim();
+    const kg = String(kgInput?.value || "").trim().replace(",", ".");
 
     return {
       ps: item.ps,
@@ -335,18 +336,9 @@ const kg = String(kgInput?.value || "").trim();
       parte: item.parte,
       sc: item.sc,
       sp: item.sp,
-      cajones
+      cajones,
+      kg
     };
-    return {
-  ps: item.ps,
-  proceso: item.proceso,
-  parte: item.parte,
-  sc: item.sc,
-  sp: item.sp,
-  cajones,
-  kg // 👈 NUEVO
-};
-    
   });
 }
 
@@ -385,7 +377,7 @@ iframe.addEventListener("load", () => {
   }
 });
 
-btnEnviarCambios.addEventListener("click", () => {
+btnEnviarCambios.addEventListener("click", async () => {
   if (isSubmitting) return;
 
   const rawItems = getItemsFromTable();
@@ -401,41 +393,45 @@ btnEnviarCambios.addEventListener("click", () => {
     return;
   }
 
-  const detalle = items
-    .map(it => `${it.parte} - ${it.proceso} - SC ${it.sc} - SP ${it.sp} - ${it.cajones} cajones`)
-    .join("\n");
-
-  const ok = confirm(`¿Está seguro con las cantidades?\n\n${detalle}`);
+  const ok = confirm("¿Confirmar envío?");
   if (!ok) return;
 
   lastSendCode = genNumericCode(4);
 
-  const payload = {
-    fecha: arDateISO(),
-    sucursal: SUCURSAL,
-    codigoEnvio: lastSendCode,
-    ps: selectedPS,
-    items
-  };
-
   try {
     isSubmitting = true;
     btnEnviarCambios.disabled = true;
-    btnEnviarCambios.classList.remove("enabled");
 
-    setTableMsg("Enviando a Sheet...", "");
-    setStatus("Enviando a Sheet...", "");
+    setStatus("Enviando...", "");
 
-    payloadField.value = JSON.stringify(payload);
-    sheetForm.submit();
+    const rows = items.map(it => ({
+      "Dia-mes": arDateISO(),
+      "Prov_Serv": selectedPS,
+      "Sector SC": it.sc,
+      "Parte": it.parte,
+      "KG": it.kg ? parseFloat(it.kg) : null,
+      "Cajones": parseInt(it.cajones),
+      "Sector SP": it.sp,
+      "Proceso": it.proceso,
+      "Faltante": false
+    }));
+
+    const { error } = await sb
+      .from("Entrega a PS")
+      .insert(rows);
+
+    if (error) throw error;
+
+    setStatus("Guardado correctamente", "ok");
+    showSuccess(lastSendCode);
+
   } catch (e) {
+    console.error(e);
+    setStatus("Error al guardar", "bad");
+  } finally {
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
     updateEnviarState();
-
-    console.error(e);
-    setTableMsg("Error enviando: " + (e?.message || e), "bad");
-    setStatus("Error enviando.", "bad");
   }
 });
 
