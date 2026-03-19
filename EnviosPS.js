@@ -7,6 +7,7 @@ const SUCURSAL = "Cerv";
 
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
+const TABLA_DESTINO = "Envios a PS";
 
 const SUPABASE_TABLE = "Partes x PS";
 const COL_PS = "PS";
@@ -37,10 +38,6 @@ const tableMsg = document.getElementById("tableMsg");
 const successBox = document.getElementById("successBox");
 const successCodeEl = document.getElementById("successCode");
 const okBtn = document.getElementById("okBtn");
-
-const sheetForm = document.getElementById("sheetForm");
-const payloadField = document.getElementById("payloadField");
-const iframe = document.querySelector('iframe[name="sheet_iframe"]');
 
 /***********************
  * STATE
@@ -322,12 +319,25 @@ async function seleccionarPS(ps) {
 /***********************
  * TABLE DATA
  ***********************/
+function parseInputNumber(value) {
+  if (value === null || value === undefined) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const normalized = raw.replace(",", ".");
+  const n = Number(normalized);
+
+  return Number.isFinite(n) ? n : null;
+}
+
 function getItemsFromTable() {
   return fetchedItems.map((item, i) => {
-    const input = resultBody.querySelector(`input[data-role="cajones"][data-idx="${i}"]`);
-    const cajones = String(input?.value || "").trim();
+    const cajInput = resultBody.querySelector(`input[data-role="cajones"][data-idx="${i}"]`);
     const kgInput = resultBody.querySelector(`input[data-role="kg"][data-idx="${i}"]`);
-const kg = String(kgInput?.value || "").trim();
+
+    const cajones = parseInputNumber(cajInput?.value);
+    const kg = parseInputNumber(kgInput?.value);
 
     return {
       ps: item.ps,
@@ -335,26 +345,24 @@ const kg = String(kgInput?.value || "").trim();
       parte: item.parte,
       sc: item.sc,
       sp: item.sp,
-      cajones
+      cajones: cajones ?? 0,
+      kg: kg ?? 0
     };
-    return {
-  ps: item.ps,
-  proceso: item.proceso,
-  parte: item.parte,
-  sc: item.sc,
-  sp: item.sp,
-  cajones,
-  kg // 👈 NUEVO
-};
-    
   });
 }
 
 function filterItemsToSend(items) {
   return items.filter(it => {
-    const n = Number(it.cajones);
-    return it.cajones !== "" && Number.isInteger(n) && n > 0;
+    const caj = Number(it.cajones || 0);
+    const kg = Number(it.kg || 0);
+    return caj > 0 || kg > 0;
   });
+}
+function getDiaMesHoy() {
+  const hoy = new Date();
+  const dia = String(hoy.getDate()).padStart(2, "0");
+  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}`;
 }
 
 /***********************
@@ -369,23 +377,9 @@ okBtn.addEventListener("click", () => {
   resetAll();
 });
 
-iframe.addEventListener("load", () => {
-  if (!isSubmitting) return;
 
-  isSubmitting = false;
-  btnEnviarCambios.disabled = false;
 
-  updateEnviarState();
-
-  setStatus("Enviado a Sheet.", "ok");
-  setTableMsg("Enviado a Sheet.", "ok");
-
-  if (lastSendCode) {
-    showSuccess(lastSendCode);
-  }
-});
-
-btnEnviarCambios.addEventListener("click", () => {
+btnEnviarCambios.addEventListener("click", async () => {
   if (isSubmitting) return;
 
   const rawItems = getItemsFromTable();
@@ -397,37 +391,50 @@ btnEnviarCambios.addEventListener("click", () => {
   }
 
   if (!items.length) {
-    setTableMsg("Completá al menos un cajón (> 0).", "bad");
+    setTableMsg("Completá al menos KG o Caj (> 0).", "bad");
     return;
   }
 
   const detalle = items
-    .map(it => `${it.parte} - ${it.proceso} - SC ${it.sc} - SP ${it.sp} - ${it.cajones} cajones`)
+    .map(it => `${it.parte} - ${it.proceso} - SC ${it.sc} - SP ${it.sp} - KG ${it.kg || 0} - Caj ${it.cajones || 0}`)
     .join("\n");
 
   const ok = confirm(`¿Está seguro con las cantidades?\n\n${detalle}`);
   if (!ok) return;
 
-  lastSendCode = genNumericCode(4);
-
-  const payload = {
-    fecha: arDateISO(),
-    sucursal: SUCURSAL,
-    codigoEnvio: lastSendCode,
-    ps: selectedPS,
-    items
-  };
+  const payload = items.map(it => ({
+    "Dia-mes": getDiaMesHoy(),
+    "Prov_Serv": selectedPS,
+    "Sector SC": it.sc || "",
+    "Parte": it.parte || "",
+    "Faltante": false,
+    "KG": Number(it.kg || 0),
+    "Cajones": Number(it.cajones || 0),
+    "Sector SP": it.sp || "",
+    "Proceso": it.proceso || ""
+  }));
 
   try {
     isSubmitting = true;
     btnEnviarCambios.disabled = true;
     btnEnviarCambios.classList.remove("enabled");
 
-    setTableMsg("Enviando a Sheet...", "");
-    setStatus("Enviando a Sheet...", "");
+    setTableMsg("Guardando en base de datos...", "");
+    setStatus("Guardando en base de datos...", "");
 
-    payloadField.value = JSON.stringify(payload);
-    sheetForm.submit();
+    const { error } = await sb
+      .from(TABLA_DESTINO)
+      .insert(payload);
+
+    if (error) throw error;
+
+    isSubmitting = false;
+    btnEnviarCambios.disabled = false;
+
+    setStatus("Enviado correctamente.", "ok");
+    setTableMsg("Enviado correctamente.", "ok");
+
+    showSuccess("OK");
   } catch (e) {
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
@@ -435,7 +442,7 @@ btnEnviarCambios.addEventListener("click", () => {
 
     console.error(e);
     setTableMsg("Error enviando: " + (e?.message || e), "bad");
-    setStatus("Error enviando.", "bad");
+    setStatus("Error guardando en base.", "bad");
   }
 });
 
