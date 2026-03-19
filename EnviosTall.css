@@ -31,25 +31,11 @@ h1{
 ========================= */
 
 .header-bar{
-  position:relative;
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:start;
   gap:16px;
   margin-bottom:12px;
-  min-height:44px;
-}
-
-.header-bar > h1{
-  position:absolute;
-  left:50%;
-  top:0;
-  transform:translateX(-50%);
-  margin:0;
-  font-size:28px;
-  line-height:38px;
-  white-space:nowrap;
-  pointer-events:none;
 }
 
 .header-left{
@@ -57,7 +43,20 @@ h1{
   align-items:center;
   gap:12px;
   flex-wrap:wrap;
-  z-index:2;
+}
+
+.header-title{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-width:0;
+}
+
+.header-title h1{
+  margin:0;
+  font-size:28px;
+  text-align:center;
+  line-height:1.1;
 }
 
 .header-right{
@@ -66,8 +65,17 @@ h1{
   justify-content:flex-end;
   gap:12px;
   flex-wrap:wrap;
-  flex:1;
-  z-index:2;
+  min-width:0;
+}
+
+.talleristas-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px 18px;
+  justify-content:flex-end;
+  align-items:center;
+  margin-bottom:0;
+  min-width:0;
 }
 
 .talleristas-grid{
@@ -419,6 +427,7 @@ h1{
    RESPONSIVE
 ========================= */
 @media (max-width: 900px){
+
   body{
     padding:12px;
   }
@@ -427,39 +436,43 @@ h1{
     padding:12px;
   }
 
+  /* HEADER EN COLUMNA */
   .header-bar{
-    position:static;
+    display:flex;
     flex-direction:column;
     align-items:stretch;
     gap:10px;
-    min-height:0;
   }
 
-  .header-bar > h1{
-    position:static;
-    transform:none;
-    text-align:center;
-    line-height:1.2;
-    white-space:normal;
+  /* TITULO ARRIBA */
+  .header-title{
+    order:1;
+    justify-content:flex-start;
+  }
+
+  .header-title h1{
     font-size:24px;
-    order:2;
+    text-align:left;
   }
 
+  /* BOTONES IZQUIERDA */
   .header-left{
+    order:2;
     justify-content:space-between;
     align-items:center;
     width:100%;
-    order:1;
   }
 
+  /* DERECHA ABAJO */
   .header-right{
+    order:3;
     width:100%;
     justify-content:space-between;
     align-items:flex-start;
     gap:10px;
-    order:3;
   }
 
+  /* TALLERISTAS */
   .talleristas-grid{
     flex:1;
     justify-content:flex-end;
@@ -472,6 +485,7 @@ h1{
     padding:0 14px;
   }
 
+  /* TABLA */
   .table-wrap{
     max-height:72vh;
     overflow-x:hidden;
@@ -511,51 +525,45 @@ h1{
     min-width:0;
   }
 
+  /* ANCHOS PROPORCIONALES */
   .table th:nth-child(1),
   .table td:nth-child(1){
     width:12%;
-    min-width:0;
-    max-width:none;
   }
 
   .table th:nth-child(2),
   .table td:nth-child(2){
     width:38%;
-    min-width:0;
-    max-width:none;
   }
 
   .table th:nth-child(3),
   .table td:nth-child(3){
     width:14%;
-    min-width:0;
-    max-width:none;
   }
 
   .table th:nth-child(4),
   .table td:nth-child(4){
     width:10%;
-    min-width:0;
-    max-width:none;
   }
 
   .table th:nth-child(5),
   .table td:nth-child(5){
     width:13%;
-    min-width:0;
-    max-width:none;
   }
 
   .table th:nth-child(6),
   .table td:nth-child(6){
     width:13%;
-    min-width:0;
-    max-width:none;
   }
 
   .faltante-box{
     width:20px;
     height:20px;
     font-size:12px;
+  }
+
+  /* BOTON ENVIAR FULL WIDTH */
+  .btn-enviar{
+    width:100%;
   }
 }
