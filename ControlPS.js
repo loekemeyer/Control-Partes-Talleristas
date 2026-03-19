@@ -311,7 +311,7 @@ async function seleccionar(ps){
           <th colspan="3">Base</th>
           <th colspan="3">Online</th>
           <th>Enviar</th>
-          <th colspan="2">Movimientos</th>
+          <th colspan="2">Movimientos Uni</th>
           <th colspan="2">Info</th>
         </tr>
         <tr>
