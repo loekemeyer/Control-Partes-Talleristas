@@ -64,14 +64,6 @@ function formatDecimal(n){
   });
 }
 
-function formatKg(n){
-  let value = Number(n || 0);
-
-  return value.toLocaleString("es-AR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-  });
-}
 function formatCajones(n){
   return Number(n || 0).toLocaleString("es-AR", {
     minimumFractionDigits: 0,
@@ -413,7 +405,7 @@ async function seleccionar(ps){
         <td>${escapeHtml(item.SP)}</td>
         <td>${escapeHtml(item.Parte)}</td>
 
-        <td>${formatKg(onlineKg)}</td>
+        <td>${formatDecimal(onlineKg)}</td>
         <td>${formatCajones(onlineCaj)}</td>
         <td>${formatNumber(onlineUni)}</td>
 
