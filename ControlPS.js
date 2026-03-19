@@ -85,9 +85,7 @@ async function cargarSPKG(){
   
   const map = new Map();
 
-  data.forEach(r=>{
-    console.log(r);
-    
+  data.forEach(r=>{   
     const key = String(r.Sp || "").trim().toLowerCase();
     if (!key) return;
   
