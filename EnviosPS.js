@@ -460,7 +460,9 @@ const items = rawItems.filter(it => {
     setStatus("Enviado correctamente.", "ok");
     setTableMsg("Enviado correctamente.", "ok");
 
-    showSuccess("OK");
+    const codigo = genNumericCode(4);
+    lastSendCode = codigo;
+    showSuccess(codigo);
   } catch (e) {
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
