@@ -82,10 +82,12 @@ async function cargarSPKG(){
   if(spKgCache) return spKgCache;
 
   const { data } = await supabaseClient.from(TABLA_SP_KG).select("*");
-
+  
   const map = new Map();
 
   data.forEach(r=>{
+    console.log(r);
+    
     const key = String(r.Sp || "").trim().toLowerCase();
     if (!key) return;
   
