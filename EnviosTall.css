@@ -1,7 +1,9 @@
 * {
   box-sizing: border-box;
 }
-
+.table {
+  table-layout: fixed;
+}
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -9,7 +11,15 @@ body {
   padding: 20px;
   color: #111;
 }
-
+.table td,
+.table th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table tbody td {
+  padding: 5px 6px;
+}
 .card {
   max-width: 1250px;
   margin: 0 auto;
@@ -197,7 +207,7 @@ body {
 }
 
 .input-caj {
-  width: 78px;
+
   height: 30px;
   border: 1px solid #bdbdbd;
   border-radius: 4px;
@@ -211,7 +221,11 @@ body {
   border-color: #3b82f6;
   background: #fff;
 }
-
+.input-caj,
+.input-kg {
+  width: 100%;
+  max-width: 100%;
+}
 .status {
   margin: 0 0 14px;
   font-size: 14px;
@@ -336,7 +350,6 @@ body {
   border-color: #999;
 }
 .input-kg {
-  width: 90px;
   height: 30px;
   border: 1px solid #bdbdbd;
   border-radius: 4px;
