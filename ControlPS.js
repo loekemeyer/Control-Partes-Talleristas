@@ -413,7 +413,17 @@ async function seleccionar(ps){
         <td>${escapeHtml(item.SP)}</td>
         <td>${escapeHtml(item.Parte)}</td>
 
-        <td>${formatKg(onlineKg)}</td>
+        function formatKg(n){
+  let value = Number(n || 0);
+
+  // 🔴 REDONDEO REAL
+  value = Math.round(value * 10) / 10;
+
+  return value.toLocaleString("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
         <td>${formatCajones(onlineCaj)}</td>
         <td>${formatNumber(onlineUni)}</td>
 
