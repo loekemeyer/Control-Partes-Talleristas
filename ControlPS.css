@@ -229,3 +229,17 @@ td:nth-child(11){
   border-bottom:1px solid #eee;
   font-size:14px;
 }
+.btn-index{
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid #111;
+  background:#111;
+  color:#fff;
+  cursor:pointer;
+  font-weight:bold;
+  margin-right:10px;
+}
+
+.btn-index:hover{
+  background:#333;
+}
