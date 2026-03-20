@@ -339,28 +339,71 @@ function buildMovimientoCell(valorKg, detalle, rowIndex, tipo, kgUni, kgCaj, for
  * Ubicación = SC
  *************************************************/
 async function getBaseSP() {
-  const idx = await cargarIndicesPiezaMadre();
+  const [piezaMadreRows, scRows, spRows] = await Promise.all([
+    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"'),
+    fetchTabla(TABLA_SC_KG, "*"),
+    fetchTabla(TABLA_SP_KG, "*")
+  ]);
 
-  return (idx.piezaMadreRows || []).map(r => {
+  const sectoresPorPieza = new Map();
+
+  function ensureItem(piezaMadre) {
+    const key = normalizeText(piezaMadre);
+    if (!sectoresPorPieza.has(key)) {
+      sectoresPorPieza.set(key, {
+        scSet: new Set(),
+        spSet: new Set(),
+        kgUni: 0,
+        kgCaj: 0
+      });
+    }
+    return sectoresPorPieza.get(key);
+  }
+
+  (scRows || []).forEach(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const sc = String(pick(r, ["SC", "Sc", "sc"])).trim();
+    const kgUni = num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"]));
+    const kgCaj = num(pick(r, ["Max Caj Cerv", "Max Cajon Cerv", "max caj cerv"]));
+
+    if (!piezaMadre) return;
+
+    const item = ensureItem(piezaMadre);
+    if (sc) item.scSet.add(sc);
+    if (!item.kgUni && kgUni) item.kgUni = kgUni;
+    if (!item.kgCaj && kgCaj) item.kgCaj = kgCaj;
+  });
+
+  (spRows || []).forEach(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const sp = String(pick(r, ["Sp", "SP", "sp"])).trim();
+    const kgUni = num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"]));
+    const kgCaj = num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]));
+
+    if (!piezaMadre) return;
+
+    const item = ensureItem(piezaMadre);
+    if (sp) item.spSet.add(sp);
+    if (!item.kgUni && kgUni) item.kgUni = kgUni;
+    if (!item.kgCaj && kgCaj) item.kgCaj = kgCaj;
+  });
+
+  return (piezaMadreRows || []).map(r => {
     const descripcion = String(r["Pieza Madre"] || "").trim();
-    const sec = idx.sectorPorPieza.get(normalizeText(descripcion)) || null;
+    const info = sectoresPorPieza.get(normalizeText(descripcion)) || null;
 
-    const sc = sec ? [...sec.scSet].join(", ") : "";
-    const sp = sec ? [...sec.spSet].join(", ") : "";
+    const scTexto = info && info.scSet.size ? `SC: ${[...info.scSet].join(", ")}` : "";
+    const spTexto = info && info.spSet.size ? `SP: ${[...info.spSet].join(", ")}` : "";
 
-    let ubicacion = "";
-    if (sc && sp) ubicacion = `SC: ${sc} | SP: ${sp}`;
-    else if (sc) ubicacion = `SC: ${sc}`;
-    else if (sp) ubicacion = `SP: ${sp}`;
+    const sectores = [scTexto, spTexto].filter(Boolean).join(" | ");
 
     return {
       key: normalizeText(descripcion),
-      sectores: ubicacion,
-      sc: sec ? [...sec.scSet].join(", ") : "",
-      sp: sec ? [...sec.spSet].join(", ") : "",
+      sectores,
+      sc: info && info.scSet.size ? [...info.scSet].join(", ") : "",
       descripcion,
-      kgUni: num(sec?.kgUni),
-      kgCaj: num(sec?.kgCaj)
+      kgUni: num(info?.kgUni),
+      kgCaj: num(info?.kgCaj)
     };
   }).filter(r => r.key);
 }
@@ -706,7 +749,7 @@ function aplicarFiltros() {
     const matchBusqueda =
       !q ||
       normalizeText(r.descripcion).includes(q) ||
-      normalizeText(r.ubicacion).includes(q);
+      normalizeText(r.sectores).includes(q);
 
     const totalAbs =
       Math.abs(convertirKgAFormato(r.stockSPKg, r.kgUni, r.kgCaj, formato)) +
