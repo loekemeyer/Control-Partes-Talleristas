@@ -105,12 +105,21 @@ function formatValorSegunFormato(valor, formato) {
 }
 
 async function fetchTabla(nombre, columns = "*") {
-  const { data, error } = await supabase
-    .from(nombre)
-    .select(columns);
+  try {
+    const { data, error } = await supabase
+      .from(nombre)
+      .select(columns);
 
-  if (error) throw error;
-  return data || [];
+    if (error) {
+      console.error("Error en tabla:", nombre, error);
+      throw new Error(`${nombre}: ${error.message || "error sin detalle"}`);
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Fallo fetchTabla:", nombre, err);
+    throw err;
+  }
 }
 
 async function getSPBase() {
@@ -431,20 +440,27 @@ async function cargarStocksGeneral() {
       </tr>
     `;
 
-    const [baseRows, psMap, tallMap] = await Promise.all([
-      getSPBase(),
-      getPSStockMap(),
-      getTallStockMap()
-    ]);
+    console.log("Iniciando carga Stocks General...");
+
+    const baseRows = await getSPBase();
+    console.log("SP base OK", baseRows.length);
+
+    const psMap = await getPSStockMap();
+    console.log("PS map OK", psMap.size);
+
+    const tallMap = await getTallStockMap();
+    console.log("Tall map OK", tallMap.size);
 
     rowsOriginal = unirStocks(baseRows, psMap, tallMap);
+    console.log("Unión OK", rowsOriginal.length);
+
     aplicarFiltros();
   } catch (error) {
-    console.error(error);
+    console.error("ERROR FINAL StocksGeneral:", error);
     lblEstado.textContent = `Error: ${error.message || error}`;
     tbodyStocksGeneral.innerHTML = `
       <tr>
-        <td colspan="5" class="empty">Error al cargar datos.</td>
+        <td colspan="5" class="empty">Error al cargar datos: ${String(error.message || error)}</td>
       </tr>
     `;
   }
