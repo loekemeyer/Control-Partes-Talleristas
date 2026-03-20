@@ -7,6 +7,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 /*************************************************
  * TABLAS
  *************************************************/
+const TABLA_SC_KG = "SC Kg";
 const TABLA_SP_KG = "SP Kg";
 const TABLA_PARTES_PS = "Partes x PS";
 const TABLA_PARTES_TALL = "Partes x Tallerista";
