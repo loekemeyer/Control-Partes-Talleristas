@@ -79,7 +79,7 @@ function formatKgOnline(n){
 }
 
 btnIndex.onclick = ()=>{
-  window.location.href = "index.html";
+  window.location.href = "/";
 };
 
 function normalizeText(value){
