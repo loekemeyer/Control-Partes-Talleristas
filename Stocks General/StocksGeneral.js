@@ -1,3 +1,4 @@
+alert("Se actualizó StocksGeneral.js");
 "use strict";
 
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
