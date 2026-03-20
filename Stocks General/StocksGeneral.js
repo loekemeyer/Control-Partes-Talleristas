@@ -14,6 +14,7 @@ const TABLA_PARTES_TALL = "Partes x Tallerista";
 const TABLA_ENTREGA_PS = "Entrega a PS";
 const TABLA_ENVIOS_TALL = "Envios a Talleristas";
 const TABLA_PIEZA_MADRE = "Pieza Madre";
+const TABLA_ENVIOS_PS = "Envios a PS";
 /*************************************************
  * DOM
  *************************************************/
@@ -139,46 +140,225 @@ async function fetchTabla(nombre, columns = "*") {
   return data || [];
 }
 
+let indicesPiezaMadreCache = null;
+
+function formatPopupKg(n) {
+  return Number(n || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3
+  });
+}
+
+async function cargarIndicesPiezaMadre() {
+  if (indicesPiezaMadreCache) return indicesPiezaMadreCache;
+
+  const [piezaMadreRows, spRows, scRows] = await Promise.all([
+    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"'),
+    fetchTabla(TABLA_SP_KG, "*"),
+    fetchTabla(TABLA_SC_KG, "*")
+  ]);
+
+  const spPorParte = new Map();
+  const spPorSector = new Map();
+  const scPorDescripcion = new Map();
+  const scPorSector = new Map();
+  const sectorPorPieza = new Map();
+
+  function ensureSector(piezaMadre) {
+    const key = normalizeText(piezaMadre);
+    if (!sectorPorPieza.has(key)) {
+      sectorPorPieza.set(key, {
+        spSet: new Set(),
+        scSet: new Set(),
+        kgUni: 0,
+        kgCaj: 0
+      });
+    }
+    return sectorPorPieza.get(key);
+  }
+
+  (spRows || []).forEach(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const parte = String(pick(r, ["Parte", "PARTE", "parte"])).trim();
+    const sp = String(pick(r, ["Sp", "SP", "sp"])).trim();
+    const kgUni = num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"]));
+    const kgCaj = num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]));
+
+    if (!piezaMadre) return;
+
+    const ref = { piezaMadre, sp, kgUni, kgCaj };
+
+    if (parte) spPorParte.set(normalizeText(parte), ref);
+    if (sp) spPorSector.set(normalizeText(sp), ref);
+
+    const sec = ensureSector(piezaMadre);
+    if (sp) sec.spSet.add(sp);
+    if (!sec.kgUni && kgUni) sec.kgUni = kgUni;
+    if (!sec.kgCaj && kgCaj) sec.kgCaj = kgCaj;
+  });
+
+  (scRows || []).forEach(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const descripcion = String(pick(r, ["Descripcion", "Descripción", "descripcion"])).trim();
+    const sc = String(pick(r, ["SC", "Sc", "sc"])).trim();
+    const kgUni = num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"]));
+    const kgCaj = num(pick(r, ["Max Caj Cerv", "Max Cajon Cerv", "max caj cerv"]));
+
+    if (!piezaMadre) return;
+
+    const ref = { piezaMadre, sc, kgUni, kgCaj };
+
+    if (descripcion) scPorDescripcion.set(normalizeText(descripcion), ref);
+    if (sc) scPorSector.set(normalizeText(sc), ref);
+
+    const sec = ensureSector(piezaMadre);
+    if (sc) sec.scSet.add(sc);
+    if (!sec.kgUni && kgUni) sec.kgUni = kgUni;
+    if (!sec.kgCaj && kgCaj) sec.kgCaj = kgCaj;
+  });
+
+  indicesPiezaMadreCache = {
+    piezaMadreRows: piezaMadreRows || [],
+    spPorParte,
+    spPorSector,
+    scPorDescripcion,
+    scPorSector,
+    sectorPorPieza
+  };
+
+  return indicesPiezaMadreCache;
+}
+
+function resolverRefSP(r, idx) {
+  const sp = normalizeText(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp", "SP", "Sp", "sp"]));
+  const parte = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+  return idx.spPorSector.get(sp) || idx.spPorParte.get(parte) || null;
+}
+
+function resolverRefSC(r, idx) {
+  const sc = normalizeText(pick(r, ["SC", "Sc", "sc"]));
+  const descripcion = normalizeText(
+    pick(r, ["Descripcion", "Descripción", "descripcion", "descripcion_parte", "Descripcion_parte", "Descripción_parte", "pieza", "Pieza"])
+  );
+  return idx.scPorSector.get(sc) || idx.scPorDescripcion.get(descripcion) || null;
+}
+
+function ensurePopupStocks() {
+  if (document.getElementById("stocksPopupOverlay")) return;
+
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <div id="stocksPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+      <div style="width:min(520px,100%);max-height:80vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.18);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e5e7eb;">
+          <div id="stocksPopupTitle" style="font-weight:700;font-size:18px;"></div>
+          <button id="stocksPopupClose" type="button" style="border:0;background:#fff;font-size:18px;cursor:pointer;">✕</button>
+        </div>
+        <div id="stocksPopupBody" style="padding:8px 0;"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(div.firstElementChild);
+
+  const overlay = document.getElementById("stocksPopupOverlay");
+  const close = document.getElementById("stocksPopupClose");
+
+  close.addEventListener("click", () => {
+    overlay.style.display = "none";
+  });
+
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) overlay.style.display = "none";
+  });
+}
+
+function abrirPopupStocks(titulo, detalle, kgUni, kgCaj) {
+  ensurePopupStocks();
+
+  const overlay = document.getElementById("stocksPopupOverlay");
+  const title = document.getElementById("stocksPopupTitle");
+  const body = document.getElementById("stocksPopupBody");
+
+  title.textContent = titulo || "Desglose";
+
+  if (!detalle || !detalle.length) {
+    body.innerHTML = `<div style="padding:14px 16px;">Sin movimientos.</div>`;
+    overlay.style.display = "flex";
+    return;
+  }
+
+  body.innerHTML = detalle.map(item => {
+    const kg = num(item.kg);
+    const caj = item.cajones !== undefined && item.cajones !== null
+      ? num(item.cajones)
+      : (num(kgCaj) > 0 ? kg / num(kgCaj) : 0);
+    const uni = num(kgUni) > 0 ? Math.floor(kg / num(kgUni)) : 0;
+
+    const partes = [];
+    if (item.fecha) partes.push(item.fecha);
+    if (item.label) partes.push(item.label);
+    partes.push(`${formatPopupKg(kg)} kg`);
+    partes.push(`${formatCaj(caj)} caj`);
+    partes.push(`${formatNumber(uni)} uni`);
+
+    return `<div style="padding:12px 16px;border-top:1px solid #f0f0f0;">${escapeHtml(partes.join(" - "))}</div>`;
+  }).join("");
+
+  overlay.style.display = "flex";
+}
+
+function buildMovimientoCell(valorKg, detalle, rowIndex, tipo, kgUni, kgCaj, formato) {
+  const total = formatValorSegunFormato(
+    convertirKgAFormato(valorKg, kgUni, kgCaj, formato),
+    formato
+  );
+
+  const tieneDetalle = Array.isArray(detalle) && detalle.length > 0;
+
+  if (!tieneDetalle) {
+    return `<span>${escapeHtml(total)}</span>`;
+  }
+
+  return `
+    <div style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end;">
+      <span>${escapeHtml(total)}</span>
+      <button
+        type="button"
+        class="mini-popup-btn-stock"
+        data-row-index="${rowIndex}"
+        data-tipo="${tipo}"
+        style="width:22px;height:22px;border:1px solid #bfc5cc;border-radius:999px;background:#fff;cursor:pointer;font-weight:700;line-height:1;"
+      >+</button>
+    </div>
+  `;
+}
+
 /*************************************************
  * BASE DESDE SC Kg + Pieza Madre
  * Descripción = Pieza Madre
  * Ubicación = SC
  *************************************************/
 async function getBaseSP() {
-  const [piezaMadreRows, scRows] = await Promise.all([
-    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"'),
-    fetchTabla(TABLA_SC_KG, '*')
-  ]);
+  const idx = await cargarIndicesPiezaMadre();
 
-  const scMap = new Map();
-
-  (scRows || []).forEach(r => {
-    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
-    const ubicacion = String(pick(r, ["SC", "sc"])).trim();
-    const kgUni = num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"]));
-    const kgCaj = num(pick(r, ["Max Caj Cerv", "max caj cerv"]));
-
-    if (!piezaMadre) return;
-
-    if (!scMap.has(normalizeText(piezaMadre))) {
-      scMap.set(normalizeText(piezaMadre), {
-        ubicacion,
-        kgUni,
-        kgCaj
-      });
-    }
-  });
-
-  return (piezaMadreRows || []).map(r => {
+  return (idx.piezaMadreRows || []).map(r => {
     const descripcion = String(r["Pieza Madre"] || "").trim();
-    const scInfo = scMap.get(normalizeText(descripcion)) || {};
+    const sec = idx.sectorPorPieza.get(normalizeText(descripcion)) || null;
+
+    const sc = sec ? [...sec.scSet].join(", ") : "";
+    const sp = sec ? [...sec.spSet].join(", ") : "";
+
+    let ubicacion = "";
+    if (sc && sp) ubicacion = `SC: ${sc} | SP: ${sp}`;
+    else if (sc) ubicacion = `SC: ${sc}`;
+    else if (sp) ubicacion = `SP: ${sp}`;
 
     return {
       key: normalizeText(descripcion),
-      ubicacion: scInfo.ubicacion || "",
+      ubicacion,
       descripcion,
-      kgUni: num(scInfo.kgUni),
-      kgCaj: num(scInfo.kgCaj)
+      kgUni: num(sec?.kgUni),
+      kgCaj: num(sec?.kgCaj)
     };
   }).filter(r => r.key);
 }
@@ -187,7 +367,8 @@ async function getBaseSP() {
  * SP = 0 + Entregas PS - Envios Tall
  *************************************************/
 async function getSPMap() {
-  const [entregaPSRows, enviosTallRows] = await Promise.all([
+  const [idx, entregaPSRows, enviosTallRows] = await Promise.all([
+    cargarIndicesPiezaMadre(),
     fetchTabla(TABLA_ENTREGA_PS, "*"),
     fetchTabla(TABLA_ENVIOS_TALL, "*")
   ]);
@@ -198,29 +379,35 @@ async function getSPMap() {
   const enviosTallDetalle = new Map();
 
   (entregaPSRows || []).forEach(r => {
-    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+    const ref = resolverRefSP(r, idx);
+    const key = normalizeText(ref?.piezaMadre || "");
     const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const cajones = num(pick(r, ["Cajones", "cajones", "CAJONES"]));
     const prov = String(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"])).trim() || "Entrega PS";
+    const fecha = String(pick(r, ["Dia-mes", "Dia_mes", "dia-mes", "dia_mes"])).trim();
 
     if (!key) return;
 
     addToMap(entregaPSMap, key, kg);
 
     if (!entregaPSDetalle.has(key)) entregaPSDetalle.set(key, []);
-    entregaPSDetalle.get(key).push({ label: prov, kg });
+    entregaPSDetalle.get(key).push({ label: prov, fecha, kg, cajones });
   });
 
   (enviosTallRows || []).forEach(r => {
-    const key = normalizeText(pick(r, ["Descripcion", "Descripción", "descripcion"]));
+    const ref = resolverRefSC(r, idx);
+    const key = normalizeText(ref?.piezaMadre || "");
     const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const cajones = num(pick(r, ["Cajones", "cajones", "CAJONES"]));
     const tall = String(pick(r, ["Tallerista", "tallerista", "TALLERISTA"])).trim() || "Tallerista";
+    const fecha = String(pick(r, ["Dia-mes", "Dia_mes", "dia-mes", "dia_mes"])).trim();
 
     if (!key) return;
 
     addToMap(enviosTallMap, key, kg);
 
     if (!enviosTallDetalle.has(key)) enviosTallDetalle.set(key, []);
-    enviosTallDetalle.get(key).push({ label: tall, kg: -kg });
+    enviosTallDetalle.get(key).push({ label: tall, fecha, kg: -kg, cajones: -cajones });
   });
 
   const result = new Map();
@@ -244,93 +431,112 @@ async function getSPMap() {
  * stockInicial + envios - entregas
  *************************************************/
 async function getPSMap() {
-  const [partesRows, entregaPSRows] = await Promise.all([
+  const [idx, partesRows, enviosPSRows, entregaPSRows] = await Promise.all([
+    cargarIndicesPiezaMadre(),
     fetchTabla(TABLA_PARTES_PS, "*"),
+    fetchTabla(TABLA_ENVIOS_PS, "*"),
     fetchTabla(TABLA_ENTREGA_PS, "*")
   ]);
 
   const baseMap = new Map();
   const detalleMap = new Map();
-
-  (partesRows || []).forEach(r => {
-    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
-    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim() || "PS";
-    const sp = String(pick(r, ["SP", "Sp", "sp"])).trim();
-    const stockInicialUni = num(pick(r, ["Stock Inicial", "stock inicial", "Stock_Inicial"]));
-
-    if (!key || !ps || !sp) return;
-
-    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
-
-    baseMap.set(k, {
-      parteKey: key,
-      ps,
-      sp,
-      stockInicialUni
-    });
-  });
-
   const envMap = new Map();
   const entMap = new Map();
 
   (partesRows || []).forEach(r => {
-    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
-    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim();
+    const ref = resolverRefSP(r, idx);
+    const piezaMadre = String(ref?.piezaMadre || "").trim();
+    const parteKey = normalizeText(piezaMadre);
+    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim() || "PS";
     const sp = String(pick(r, ["SP", "Sp", "sp"])).trim();
-    const env = 0;
+    const stockInicialUni = num(pick(r, ["Stock Inicial", "stock inicial", "Stock_Inicial"]));
+    const kgUni = num(ref?.kgUni);
 
-    if (!key || !ps || !sp) return;
+    if (!parteKey || !ps || !sp) return;
 
-    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
-    addToMap(envMap, k, env);
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${parteKey}`;
+
+    baseMap.set(k, {
+      parteKey,
+      ps,
+      sp,
+      stockInicialKg: stockInicialUni * kgUni
+    });
   });
 
-  (entregaPSRows || []).forEach(r => {
-    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+  (enviosPSRows || []).forEach(r => {
+    const ref = resolverRefSP(r, idx);
+    const parteKey = normalizeText(ref?.piezaMadre || "");
     const ps = String(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"])).trim();
     const sp = String(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp"])).trim();
     const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const cajones = num(pick(r, ["Cajones", "cajones", "CAJONES"]));
+    const fecha = String(pick(r, ["Dia-mes", "Dia_mes", "dia-mes", "dia_mes"])).trim();
 
-    if (!key || !ps || !sp) return;
+    if (!parteKey || !ps || !sp) return;
 
-    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${parteKey}`;
+    addToMap(envMap, k, kg);
+
+    if (!detalleMap.has(parteKey)) detalleMap.set(parteKey, []);
+    detalleMap.get(parteKey).push({ label: `${ps} (envío)`, fecha, kg, cajones });
+  });
+
+  (entregaPSRows || []).forEach(r => {
+    const ref = resolverRefSP(r, idx);
+    const parteKey = normalizeText(ref?.piezaMadre || "");
+    const ps = String(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"])).trim();
+    const sp = String(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp"])).trim();
+    const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const cajones = num(pick(r, ["Cajones", "cajones", "CAJONES"]));
+    const fecha = String(pick(r, ["Dia-mes", "Dia_mes", "dia-mes", "dia_mes"])).trim();
+
+    if (!parteKey || !ps || !sp) return;
+
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${parteKey}`;
     addToMap(entMap, k, kg);
+
+    if (!detalleMap.has(parteKey)) detalleMap.set(parteKey, []);
+    detalleMap.get(parteKey).push({ label: `${ps} (entrega)`, fecha, kg: -kg, cajones: -cajones });
   });
 
   const result = new Map();
 
   baseMap.forEach((base, k) => {
-    const onlineKg = num(base.stockInicialUni) + num(envMap.get(k)) - num(entMap.get(k));
+    const onlineKg = num(base.stockInicialKg) + num(envMap.get(k)) - num(entMap.get(k));
 
-    const parteKey = base.parteKey;
-    if (!detalleMap.has(parteKey)) detalleMap.set(parteKey, []);
-    detalleMap.get(parteKey).push({
-      label: base.ps,
-      kg: onlineKg
-    });
+    if (!result.has(base.parteKey)) {
+      result.set(base.parteKey, { totalKg: 0, detalle: [] });
+    }
+
+    const curr = result.get(base.parteKey);
+    curr.totalKg += onlineKg;
   });
 
   detalleMap.forEach((detalle, parteKey) => {
-    const totalKg = detalle.reduce((acc, x) => acc + num(x.kg), 0);
-    result.set(parteKey, { totalKg, detalle });
+    if (!result.has(parteKey)) {
+      result.set(parteKey, { totalKg: 0, detalle: [] });
+    }
+    result.get(parteKey).detalle = detalle;
   });
 
   return result;
 }
-
 /*************************************************
  * TALL = KG Online Tall
  * stockInicial + envios - entregas
  *************************************************/
 async function getTallMap() {
-  const tallRows = await fetchTabla(TABLA_PARTES_TALL, "*");
+  const [idx, tallRows] = await Promise.all([
+    cargarIndicesPiezaMadre(),
+    fetchTabla(TABLA_PARTES_TALL, "*")
+  ]);
 
   const detalleMap = new Map();
 
   (tallRows || []).forEach(r => {
-    const key = normalizeText(
-      pick(r, ["descripcion_parte", "Descripcion_parte", "Descripción_parte", "pieza", "Pieza"])
-    );
+    const ref = resolverRefSC(r, idx);
+    const key = normalizeText(ref?.piezaMadre || "");
 
     const tallerista = String(
       pick(r, ["tallerista", "Tallerista", "TALLERISTA"])
@@ -449,38 +655,38 @@ function renderTable(rows) {
 
   const formato = getFormatoActual();
 
-  tbodyStocksGeneral.innerHTML = rows.map(r => `
+  tbodyStocksGeneral.innerHTML = rows.map((r, index) => `
     <tr>
       <td class="text-left">${escapeHtml(r.ubicacion || "")}</td>
       <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
 
       <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
-        ${buildDetalleButton(r.stockSPKg, r.detalleSP, r.kgUni, r.kgCaj, formato, `Desglose SP - ${r.descripcion || ""}`)}
+        ${buildMovimientoCell(r.stockSPKg, r.detalleSP, index, "sp", r.kgUni, r.kgCaj, formato)}
       </td>
 
       <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
-        ${buildDetalleButton(r.stockPSKg, r.detallePS, r.kgUni, r.kgCaj, formato, `Desglose PS - ${r.descripcion || ""}`)}
+        ${buildMovimientoCell(r.stockPSKg, r.detallePS, index, "ps", r.kgUni, r.kgCaj, formato)}
       </td>
 
       <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
-        ${buildDetalleButton(r.stockTallKg, r.detalleTall, r.kgUni, r.kgCaj, formato, `Desglose Tall - ${r.descripcion || ""}`)}
+        ${buildMovimientoCell(r.stockTallKg, r.detalleTall, index, "tall", r.kgUni, r.kgCaj, formato)}
       </td>
     </tr>
   `).join("");
 
-  tbodyStocksGeneral.querySelectorAll(".stock-detail-btn").forEach(btn => {
-    btn.addEventListener("click", e => {
-      const tr = e.currentTarget.closest("tr");
-      const rowIndex = [...tbodyStocksGeneral.querySelectorAll("tr")].indexOf(tr);
+  tbodyStocksGeneral.querySelectorAll(".mini-popup-btn-stock").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const rowIndex = Number(btn.dataset.rowIndex);
+      const tipo = btn.dataset.tipo;
       const row = rows[rowIndex];
-      const titulo = btn.dataset.titulo || "Desglose";
+      if (!row) return;
 
-      if (titulo.includes("SP")) {
-        mostrarDesglose(titulo, row.detalleSP, row.kgUni, row.kgCaj, formato);
-      } else if (titulo.includes("Tall")) {
-        mostrarDesglose(titulo, row.detalleTall, row.kgUni, row.kgCaj, formato);
+      if (tipo === "sp") {
+        abrirPopupStocks(`SP - ${row.descripcion || ""}`, row.detalleSP, row.kgUni, row.kgCaj);
+      } else if (tipo === "ps") {
+        abrirPopupStocks(`PS - ${row.descripcion || ""}`, row.detallePS, row.kgUni, row.kgCaj);
       } else {
-        mostrarDesglose(titulo, row.detallePS, row.kgUni, row.kgCaj, formato);
+        abrirPopupStocks(`Tall - ${row.descripcion || ""}`, row.detalleTall, row.kgUni, row.kgCaj);
       }
     });
   });
