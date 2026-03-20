@@ -5,13 +5,18 @@ const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+/*************************************************
+ * TABLAS
+ *************************************************/
 const TABLA_SP_KG = "SP Kg";
 const TABLA_PARTES_PS = "Partes x PS";
-const TABLA_ENVIOS_PS = "Envios a PS";
+const TABLA_PARTES_TALL = "Partes x Tallerista";
 const TABLA_ENTREGA_PS = "Entrega a PS";
-const TABLA_ART_TALL = "Articulos Virgilio X Tallerista";
 const TABLA_ENVIOS_TALL = "Envios a Talleristas";
 
+/*************************************************
+ * DOM
+ *************************************************/
 const tbodyStocksGeneral = document.getElementById("tbodyStocksGeneral");
 const txtBuscar = document.getElementById("txtBuscar");
 const selSoloConStock = document.getElementById("selSoloConStock");
@@ -20,9 +25,15 @@ const lblEstado = document.getElementById("lblEstado");
 const btnRecargar = document.getElementById("btnRecargar");
 const btnInicio = document.getElementById("btnInicio");
 
+/*************************************************
+ * STATE
+ *************************************************/
 let rowsOriginal = [];
 let rowsFiltradas = [];
 
+/*************************************************
+ * HELPERS
+ *************************************************/
 function num(n) {
   if (n === null || n === undefined || n === "") return 0;
   if (typeof n === "number") return Number.isFinite(n) ? n : 0;
@@ -72,6 +83,15 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function pick(obj, keys) {
   for (const key of keys) {
     if (obj && Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -81,302 +101,310 @@ function pick(obj, keys) {
   return "";
 }
 
-function calcCaj(kg, kgCaj) {
-  const a = num(kg);
-  const b = num(kgCaj);
-  if (!b) return 0;
-  return a / b;
-}
-
 function getFormatoActual() {
-  return selFormatoStock?.value || "uni";
-}
-
-function getValorSegunFormato(row, prefijo, formato) {
-  if (formato === "kg") return num(row[`stock${prefijo}Kg`]);
-  if (formato === "caj") return num(row[`stock${prefijo}Caj`]);
-  return num(row[`stock${prefijo}Uni`]);
+  return selFormatoStock?.value || "kg";
 }
 
 function formatValorSegunFormato(valor, formato) {
-  if (formato === "kg") return formatKg(valor);
+  if (formato === "uni") return formatNumber(valor);
   if (formato === "caj") return formatCaj(valor);
-  return formatNumber(valor);
+  return formatKg(valor);
+}
+
+function convertirKgAFormato(kg, kgUni, kgCaj, formato) {
+  const vKg = num(kg);
+  const vKgUni = num(kgUni);
+  const vKgCaj = num(kgCaj);
+
+  if (formato === "uni") return vKgUni > 0 ? vKg / vKgUni : 0;
+  if (formato === "caj") return vKgCaj > 0 ? vKg / vKgCaj : 0;
+  return vKg;
+}
+
+function addToMap(map, key, value) {
+  if (!key) return;
+  map.set(key, (map.get(key) || 0) + num(value));
 }
 
 async function fetchTabla(nombre, columns = "*") {
-  try {
-    const { data, error } = await supabase
-      .from(nombre)
-      .select(columns);
+  const { data, error } = await supabase
+    .from(nombre)
+    .select(columns);
 
-    if (error) {
-      console.error("Error en tabla:", nombre, error);
-      throw new Error(`${nombre}: ${error.message || "error sin detalle"}`);
-    }
-
-    return data || [];
-  } catch (err) {
-    console.error("Fallo fetchTabla:", nombre, err);
-    throw err;
+  if (error) {
+    console.error(`Error en tabla ${nombre}:`, error);
+    throw new Error(`${nombre}: ${error.message || "error sin detalle"}`);
   }
+
+  return data || [];
 }
 
-async function getSPBase() {
+/*************************************************
+ * BASE DESDE SP Kg
+ *************************************************/
+async function getBaseSP() {
   const data = await fetchTabla(TABLA_SP_KG, "*");
 
-  return (data || []).map(row => {
-    const sp = String(pick(row, ["Sp", "SP", "sp"])).trim();
-    const descripcion = String(
-      pick(row, ["Descripción", "Descripcion", "DESCRIPCION", "descripcion"])
-    ).trim();
+  return (data || []).map(r => {
+    const ubicacion = String(pick(r, ["Sp", "SP", "sp"])).trim();
+    const descripcion = String(pick(r, ["Parte", "PARTE", "parte"])).trim();
 
-    const kgUni = num(pick(row, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg Uni"]));
-    const kgCaj = num(pick(row, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]));
-    const stockInicialKg = num(
-      pick(row, [
+    return {
+      key: normalizeText(descripcion),
+      ubicacion,
+      descripcion,
+      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg Uni"])),
+      kgCaj: num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]))
+    };
+  }).filter(r => r.key);
+}
+
+/*************************************************
+ * SP = 0 + Entregas PS - Envios Tall
+ *************************************************/
+async function getSPMap() {
+  const [entregaPSRows, enviosTallRows] = await Promise.all([
+    fetchTabla(TABLA_ENTREGA_PS, "*"),
+    fetchTabla(TABLA_ENVIOS_TALL, "*")
+  ]);
+
+  const entregaPSMap = new Map();
+  const enviosTallMap = new Map();
+
+  (entregaPSRows || []).forEach(r => {
+    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+    const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    addToMap(entregaPSMap, key, kg);
+  });
+
+  (enviosTallRows || []).forEach(r => {
+    const key = normalizeText(pick(r, ["Descripcion", "Descripción", "descripcion"]));
+    const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    addToMap(enviosTallMap, key, kg);
+  });
+
+  const result = new Map();
+
+  const keys = new Set([
+    ...entregaPSMap.keys(),
+    ...enviosTallMap.keys()
+  ]);
+
+  keys.forEach(key => {
+    const entregaPS = num(entregaPSMap.get(key));
+    const enviosTall = num(enviosTallMap.get(key));
+
+    result.set(key, {
+      totalKg: 0 + entregaPS - enviosTall,
+      detalle: [
+        { label: "Entregas PS", kg: entregaPS },
+        { label: "Envíos Tall", kg: -enviosTall }
+      ]
+    });
+  });
+
+  return result;
+}
+
+/*************************************************
+ * PS = KG Online PS
+ *************************************************/
+async function getPSMap() {
+  const rows = await fetchTabla(TABLA_PARTES_PS, "*");
+
+  const totalMap = new Map();
+  const detalleMap = new Map();
+
+  (rows || []).forEach(r => {
+    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+    const ps = String(pick(r, ["PS", "ps", "Ps"])).trim() || "PS s/nombre";
+
+    const kgOnline = num(
+      pick(r, [
+        "KG Online",
+        "Kg Online",
+        "kg online",
+        "kg_online",
+        "KG_Online",
         "Stock Inicial",
-        "Stock inicial",
-        "STOCK INICIAL",
-        "StockInicial",
-        "Stock_Inicial",
-        "Stock Ini",
-        "Stock"
+        "stock inicial",
+        "Stock_Inicial"
       ])
     );
 
-    const stockSPKg = stockInicialKg;
-    const stockSPUni = kgUni > 0 ? stockSPKg / kgUni : 0;
-    const stockSPCaj = kgCaj > 0 ? stockSPKg / kgCaj : 0;
+    if (!key) return;
+
+    addToMap(totalMap, key, kgOnline);
+
+    if (!detalleMap.has(key)) detalleMap.set(key, []);
+    detalleMap.get(key).push({
+      label: ps,
+      kg: kgOnline
+    });
+  });
+
+  const result = new Map();
+
+  totalMap.forEach((totalKg, key) => {
+    result.set(key, {
+      totalKg,
+      detalle: (detalleMap.get(key) || []).sort((a, b) =>
+        String(a.label).localeCompare(String(b.label), "es")
+      )
+    });
+  });
+
+  return result;
+}
+
+/*************************************************
+ * Tall = KG Online Tall
+ *************************************************/
+async function getTallMap() {
+  const rows = await fetchTabla(TABLA_PARTES_TALL, "*");
+
+  const totalMap = new Map();
+  const detalleMap = new Map();
+
+  (rows || []).forEach(r => {
+    const key = normalizeText(
+      pick(r, [
+        "descripcion_parte",
+        "Descripcion_parte",
+        "Descripción_parte",
+        "pieza",
+        "Pieza"
+      ])
+    );
+
+    const tallerista = String(
+      pick(r, ["tallerista", "Tallerista", "TALLERISTA"])
+    ).trim() || "Tallerista s/nombre";
+
+    const kgOnline = num(
+      pick(r, [
+        "kg_online",
+        "KG Online",
+        "Kg Online",
+        "kg online",
+        "KG_Online"
+      ])
+    );
+
+    if (!key) return;
+
+    addToMap(totalMap, key, kgOnline);
+
+    if (!detalleMap.has(key)) detalleMap.set(key, []);
+    detalleMap.get(key).push({
+      label: tallerista,
+      kg: kgOnline
+    });
+  });
+
+  const result = new Map();
+
+  totalMap.forEach((totalKg, key) => {
+    result.set(key, {
+      totalKg,
+      detalle: (detalleMap.get(key) || []).sort((a, b) =>
+        String(a.label).localeCompare(String(b.label), "es")
+      )
+    });
+  });
+
+  return result;
+}
+
+/*************************************************
+ * ARMADO FINAL
+ *************************************************/
+async function construirStocks() {
+  const [baseRows, spMap, psMap, tallMap] = await Promise.all([
+    getBaseSP(),
+    getSPMap(),
+    getPSMap(),
+    getTallMap()
+  ]);
+
+  return baseRows.map(base => {
+    const spInfo = spMap.get(base.key) || { totalKg: 0, detalle: [] };
+    const psInfo = psMap.get(base.key) || { totalKg: 0, detalle: [] };
+    const tallInfo = tallMap.get(base.key) || { totalKg: 0, detalle: [] };
 
     return {
-      ubicacion: "SP",
-      descripcion: descripcion || sp || "Sin descripción",
-      sp,
-      kgUni,
-      kgCaj,
-      stockSPKg,
-      stockSPUni,
-      stockSPCaj,
-      stockPSKg: 0,
-      stockPSUni: 0,
-      stockPSCaj: 0,
-      stockTallKg: 0,
-      stockTallUni: 0,
-      stockTallCaj: 0
+      key: base.key,
+      ubicacion: base.ubicacion || "",
+      descripcion: base.descripcion || "",
+      kgUni: num(base.kgUni),
+      kgCaj: num(base.kgCaj),
+
+      stockSPKg: num(spInfo.totalKg),
+      stockPSKg: num(psInfo.totalKg),
+      stockTallKg: num(tallInfo.totalKg),
+
+      detalleSP: spInfo.detalle || [],
+      detallePS: psInfo.detalle || [],
+      detalleTall: tallInfo.detalle || []
     };
-  }).filter(r => r.sp || r.descripcion);
-}
-
-async function getPSStockMap() {
-  const [partes, envios, entregas, spkg] = await Promise.all([
-    fetchTabla(TABLA_PARTES_PS, "*"),
-    fetchTabla(TABLA_ENVIOS_PS, "*"),
-    fetchTabla(TABLA_ENTREGA_PS, "*"),
-    fetchTabla(TABLA_SP_KG, "*")
-  ]);
-
-  const spData = new Map();
-
-  (spkg || []).forEach(r => {
-    const sp = normalizeText(pick(r, ["Sp", "SP", "sp"]));
-    if (!sp) return;
-
-    spData.set(sp, {
-      descripcion: String(
-        pick(r, ["Descripción", "Descripcion", "DESCRIPCION", "descripcion"])
-      ).trim(),
-      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg Uni"])),
-      kgCaj: num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]))
-    });
-  });
-
-  const psPorSP = new Map();
-
-  (partes || []).forEach(r => {
-    const sp = normalizeText(pick(r, ["SP", "Sp", "sp"]));
-    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim();
-
-    if (!sp || !ps) return;
-    if (!psPorSP.has(sp)) psPorSP.set(sp, new Set());
-    psPorSP.get(sp).add(ps);
-  });
-
-  const envKgPorPS = new Map();
-  (envios || []).forEach(r => {
-    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim();
-    const kg = num(pick(r, ["KG", "Kg", "kg"]));
-    if (!ps) return;
-    envKgPorPS.set(ps, (envKgPorPS.get(ps) || 0) + kg);
-  });
-
-  const entKgPorPS = new Map();
-  (entregas || []).forEach(r => {
-    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim();
-    const kg = num(pick(r, ["KG", "Kg", "kg"]));
-    if (!ps) return;
-    entKgPorPS.set(ps, (entKgPorPS.get(ps) || 0) + kg);
-  });
-
-  const result = new Map();
-
-  psPorSP.forEach((setPS, spNorm) => {
-    const base = spData.get(spNorm) || {};
-    const descripcion = base.descripcion || "Sin descripción";
-    const kgUni = num(base.kgUni);
-    const kgCaj = num(base.kgCaj);
-
-    let totalKg = 0;
-
-    [...setPS].forEach(ps => {
-      const enviados = num(envKgPorPS.get(ps));
-      const entregados = num(entKgPorPS.get(ps));
-      totalKg += (enviados - entregados);
-    });
-
-    result.set(spNorm, {
-      descripcion,
-      kgUni,
-      kgCaj,
-      stockPSKg: totalKg,
-      stockPSUni: kgUni > 0 ? totalKg / kgUni : 0,
-      stockPSCaj: kgCaj > 0 ? totalKg / kgCaj : 0
-    });
-  });
-
-  return result;
-}
-
-async function getTallStockMap() {
-  const [artTall, envTall, spkg] = await Promise.all([
-    fetchTabla(TABLA_ART_TALL, "*"),
-    fetchTabla(TABLA_ENVIOS_TALL, "*"),
-    fetchTabla(TABLA_SP_KG, "*")
-  ]);
-
-  const spData = new Map();
-
-  (spkg || []).forEach(r => {
-    const sp = normalizeText(pick(r, ["Sp", "SP", "sp"]));
-    if (!sp) return;
-
-    spData.set(sp, {
-      descripcion: String(
-        pick(r, ["Descripción", "Descripcion", "DESCRIPCION", "descripcion"])
-      ).trim(),
-      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg Uni"])),
-      kgCaj: num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]))
-    });
-  });
-
-  const stockKgPorSP = new Map();
-
-  (artTall || []).forEach(r => {
-    const sp = normalizeText(pick(r, ["Sp", "SP", "sp", "Cod_Art", "Cod Art"]));
-    const stock = num(pick(r, ["Stock Online", "stock online", "Stock_Online", "stock_online"]));
-    if (!sp) return;
-    stockKgPorSP.set(sp, (stockKgPorSP.get(sp) || 0) + stock);
-  });
-
-  (envTall || []).forEach(() => {
-    // lo dejo sin sumar/restar porque según tus archivos no hay estructura
-    // consistente para reconstruir entregas netas de talleristas desde acá
-  });
-
-  const result = new Map();
-
-  stockKgPorSP.forEach((totalKg, spNorm) => {
-    const base = spData.get(spNorm) || {};
-    const descripcion = base.descripcion || "Sin descripción";
-    const kgUni = num(base.kgUni);
-    const kgCaj = num(base.kgCaj);
-
-    result.set(spNorm, {
-      descripcion,
-      kgUni,
-      kgCaj,
-      stockTallKg: totalKg,
-      stockTallUni: kgUni > 0 ? totalKg / kgUni : 0,
-      stockTallCaj: kgCaj > 0 ? totalKg / kgCaj : 0
-    });
-  });
-
-  return result;
-}
-
-function unirStocks(baseRows, psMap, tallMap) {
-  const merged = new Map();
-
-  baseRows.forEach(r => {
-    const key = normalizeText(r.sp || r.descripcion);
-    merged.set(key, { ...r });
-  });
-
-  psMap.forEach((psRow, key) => {
-    if (!merged.has(key)) {
-      merged.set(key, {
-        ubicacion: "PS",
-        descripcion: psRow.descripcion || "Sin descripción",
-        sp: key,
-        kgUni: num(psRow.kgUni),
-        kgCaj: num(psRow.kgCaj),
-        stockSPKg: 0,
-        stockSPUni: 0,
-        stockSPCaj: 0,
-        stockPSKg: 0,
-        stockPSUni: 0,
-        stockPSCaj: 0,
-        stockTallKg: 0,
-        stockTallUni: 0,
-        stockTallCaj: 0
-      });
-    }
-
-    const row = merged.get(key);
-    row.stockPSKg = num(psRow.stockPSKg);
-    row.stockPSUni = num(psRow.stockPSUni);
-    row.stockPSCaj = num(psRow.stockPSCaj);
-
-    if (!row.descripcion) row.descripcion = psRow.descripcion || "Sin descripción";
-    if (!row.kgUni) row.kgUni = num(psRow.kgUni);
-    if (!row.kgCaj) row.kgCaj = num(psRow.kgCaj);
-  });
-
-  tallMap.forEach((tRow, key) => {
-    if (!merged.has(key)) {
-      merged.set(key, {
-        ubicacion: "Tall",
-        descripcion: tRow.descripcion || "Sin descripción",
-        sp: key,
-        kgUni: num(tRow.kgUni),
-        kgCaj: num(tRow.kgCaj),
-        stockSPKg: 0,
-        stockSPUni: 0,
-        stockSPCaj: 0,
-        stockPSKg: 0,
-        stockPSUni: 0,
-        stockPSCaj: 0,
-        stockTallKg: 0,
-        stockTallUni: 0,
-        stockTallCaj: 0
-      });
-    }
-
-    const row = merged.get(key);
-    row.stockTallKg = num(tRow.stockTallKg);
-    row.stockTallUni = num(tRow.stockTallUni);
-    row.stockTallCaj = num(tRow.stockTallCaj);
-
-    if (!row.descripcion) row.descripcion = tRow.descripcion || "Sin descripción";
-    if (!row.kgUni) row.kgUni = num(tRow.kgUni);
-    if (!row.kgCaj) row.kgCaj = num(tRow.kgCaj);
-  });
-
-  return [...merged.values()].sort((a, b) =>
+  }).sort((a, b) =>
     String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es")
   );
 }
 
+/*************************************************
+ * DESGLOSE
+ *************************************************/
+function mostrarDesglose(titulo, detalle, kgUni, kgCaj, formato) {
+  if (!detalle || !detalle.length) {
+    alert(`${titulo}\n\nSin desglose.`);
+    return;
+  }
+
+  const texto = detalle.map(item => {
+    const valor = convertirKgAFormato(item.kg, kgUni, kgCaj, formato);
+    return `${item.label}: ${formatValorSegunFormato(valor, formato)}`;
+  }).join("\n");
+
+  alert(`${titulo}\n\n${texto}`);
+}
+
+function buildDetalleButton(valorKg, detalle, kgUni, kgCaj, formato, titulo) {
+  const valorFormateado = formatValorSegunFormato(
+    convertirKgAFormato(valorKg, kgUni, kgCaj, formato),
+    formato
+  );
+
+  const tieneDetalle = Array.isArray(detalle) && detalle.length > 1;
+
+  if (!tieneDetalle) {
+    return `<span>${escapeHtml(valorFormateado)}</span>`;
+  }
+
+  return `
+    <button
+      type="button"
+      class="stock-detail-btn"
+      data-titulo="${escapeHtml(titulo)}"
+      style="
+        border:0;
+        background:transparent;
+        padding:0;
+        margin:0;
+        cursor:pointer;
+        font:inherit;
+        color:inherit;
+        text-decoration:underline;
+      "
+    >
+      ${escapeHtml(valorFormateado)}
+    </button>
+  `;
+}
+
+/*************************************************
+ * RENDER
+ *************************************************/
 function renderTable(rows) {
   if (!rows.length) {
     tbodyStocksGeneral.innerHTML = `
@@ -389,21 +417,64 @@ function renderTable(rows) {
 
   const formato = getFormatoActual();
 
-  tbodyStocksGeneral.innerHTML = rows.map(r => {
-    const sp = getValorSegunFormato(r, "SP", formato);
-    const ps = getValorSegunFormato(r, "PS", formato);
-    const tall = getValorSegunFormato(r, "Tall", formato);
-
+  tbodyStocksGeneral.innerHTML = rows.map((r, idx) => {
     return `
       <tr>
-        <td class="text-left">${formato === "kg" ? "Kg" : (formato === "caj" ? "Cajón" : "Unidades")}</td>
-        <td class="text-left">${r.descripcion || ""}</td>
-        <td class="text-right ${sp < 0 ? "negativo" : ""}">${formatValorSegunFormato(sp, formato)}</td>
-        <td class="text-right ${ps < 0 ? "negativo" : ""}">${formatValorSegunFormato(ps, formato)}</td>
-        <td class="text-right ${tall < 0 ? "negativo" : ""}">${formatValorSegunFormato(tall, formato)}</td>
+        <td class="text-left">${escapeHtml(r.ubicacion || "")}</td>
+        <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
+
+        <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
+          ${buildDetalleButton(
+            r.stockSPKg,
+            r.detalleSP,
+            r.kgUni,
+            r.kgCaj,
+            formato,
+            `Desglose SP - ${r.descripcion || ""}`
+          )}
+        </td>
+
+        <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
+          ${buildDetalleButton(
+            r.stockPSKg,
+            r.detallePS,
+            r.kgUni,
+            r.kgCaj,
+            formato,
+            `Desglose PS - ${r.descripcion || ""}`
+          )}
+        </td>
+
+        <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
+          ${buildDetalleButton(
+            r.stockTallKg,
+            r.detalleTall,
+            r.kgUni,
+            r.kgCaj,
+            formato,
+            `Desglose Talleristas - ${r.descripcion || ""}`
+          )}
+        </td>
       </tr>
     `;
   }).join("");
+
+  tbodyStocksGeneral.querySelectorAll(".stock-detail-btn").forEach((btn, index) => {
+    btn.addEventListener("click", e => {
+      const tr = e.currentTarget.closest("tr");
+      const rowIndex = [...tbodyStocksGeneral.querySelectorAll("tr")].indexOf(tr);
+      const row = rows[rowIndex];
+      const titulo = btn.dataset.titulo || "Desglose";
+
+      if (titulo.includes("SP")) {
+        mostrarDesglose(titulo, row.detalleSP, row.kgUni, row.kgCaj, formato);
+      } else if (titulo.includes("Talleristas")) {
+        mostrarDesglose(titulo, row.detalleTall, row.kgUni, row.kgCaj, formato);
+      } else {
+        mostrarDesglose(titulo, row.detallePS, row.kgUni, row.kgCaj, formato);
+      }
+    });
+  });
 }
 
 function aplicarFiltros() {
@@ -412,12 +483,15 @@ function aplicarFiltros() {
   const formato = getFormatoActual();
 
   rowsFiltradas = rowsOriginal.filter(r => {
-    const matchBusqueda = !q || normalizeText(r.descripcion).includes(q);
+    const matchBusqueda =
+      !q ||
+      normalizeText(r.descripcion).includes(q) ||
+      normalizeText(r.ubicacion).includes(q);
 
     const totalAbs =
-      Math.abs(getValorSegunFormato(r, "SP", formato)) +
-      Math.abs(getValorSegunFormato(r, "PS", formato)) +
-      Math.abs(getValorSegunFormato(r, "Tall", formato));
+      Math.abs(convertirKgAFormato(r.stockSPKg, r.kgUni, r.kgCaj, formato)) +
+      Math.abs(convertirKgAFormato(r.stockPSKg, r.kgUni, r.kgCaj, formato)) +
+      Math.abs(convertirKgAFormato(r.stockTallKg, r.kgUni, r.kgCaj, formato));
 
     const tieneStock = totalAbs > 0;
 
@@ -440,39 +514,29 @@ async function cargarStocksGeneral() {
       </tr>
     `;
 
-    console.log("Iniciando carga Stocks General...");
-
-    const baseRows = await getSPBase();
-    console.log("SP base OK", baseRows.length);
-
-    const psMap = await getPSStockMap();
-    console.log("PS map OK", psMap.size);
-
-    const tallMap = await getTallStockMap();
-    console.log("Tall map OK", tallMap.size);
-
-    rowsOriginal = unirStocks(baseRows, psMap, tallMap);
-    console.log("Unión OK", rowsOriginal.length);
-
+    rowsOriginal = await construirStocks();
     aplicarFiltros();
   } catch (error) {
-    console.error("ERROR FINAL StocksGeneral:", error);
+    console.error("ERROR StocksGeneral:", error);
     lblEstado.textContent = `Error: ${error.message || error}`;
     tbodyStocksGeneral.innerHTML = `
       <tr>
-        <td colspan="5" class="empty">Error al cargar datos: ${String(error.message || error)}</td>
+        <td colspan="5" class="empty">Error al cargar datos.</td>
       </tr>
     `;
   }
 }
 
+/*************************************************
+ * EVENTOS
+ *************************************************/
 txtBuscar.addEventListener("input", aplicarFiltros);
 selSoloConStock.addEventListener("change", aplicarFiltros);
 selFormatoStock.addEventListener("change", aplicarFiltros);
 btnRecargar.addEventListener("click", cargarStocksGeneral);
 
 btnInicio.addEventListener("click", () => {
-  window.location.href = "index.html";
+  window.location.href = "../index.html";
 });
 
 cargarStocksGeneral();
