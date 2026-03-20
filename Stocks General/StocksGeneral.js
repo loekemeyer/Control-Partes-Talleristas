@@ -1,6 +1,6 @@
-alert("Se actualizó StocksGeneral.js");
-"use strict";
 
+"use strict";
+alert("Se actualizó StocksGeneral.js");
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 
@@ -127,10 +127,9 @@ function addToMap(map, key, value) {
   map.set(key, (map.get(key) || 0) + num(value));
 }
 
-async function fetchTabla(nombre, columns = "*") {
-  const { data, error } = await supabase
-    .from(nombre)
-    .select(columns);
+const { data, error } = await sb
+  .from(nombre)
+  .select(columns);
 
   if (error) {
     console.error(`Error en tabla ${nombre}:`, error);
