@@ -1,6 +1,4 @@
-
 "use strict";
-alert("Se actualizó StocksGeneral.js");
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 
@@ -141,44 +139,33 @@ async function fetchTabla(nombre, columns = "*") {
 }
 
 /*************************************************
- * BASE DESDE SP Kg
- * Ubicación = Sp
- * Descripción = Parte
+ * BASE DESDE SC Kg + Pieza Madre
+ * Descripción = Pieza Madre
+ * Ubicación = SC
  *************************************************/
 async function getBaseSP() {
-  const [spRows, piezaMadreRows] = await Promise.all([
-    fetchTabla(TABLA_SP_KG, "*"),
-    fetchTabla(TABLA_PIEZA_MADRE, '*')
+  const [scRows, piezaMadreRows] = await Promise.all([
+    fetchTabla(TABLA_SC_KG, '*'),
+    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"')
   ]);
 
-  const piezaMadreMap = new Map();
+  const nombresPiezaMadre = new Set();
 
   (piezaMadreRows || []).forEach(r => {
-    const id = String(pick(r, ["id"])).trim();
-    const nombre = String(pick(r, ["Pieza Madre"])).trim();
-
-    if (!id) return;
-    piezaMadreMap.set(id, nombre);
+    const nombre = String(r["Pieza Madre"] || "").trim();
+    if (nombre) nombresPiezaMadre.add(nombre);
   });
 
-  return (spRows || []).map(r => {
-    const ubicacion = String(pick(r, ["Sp", "SP", "sp"])).trim();
-
-    const parte = String(pick(r, ["Parte", "PARTE", "parte"])).trim();
-    const piezaMadreId = String(
-      pick(r, ["Pieza Madre", "pieza_madre", "pieza_madre_id", "Pieza Madre id", "pieza madre"])
-    ).trim();
-
-    const descripcion =
-      piezaMadreMap.get(piezaMadreId) ||
-      parte;
+  return (scRows || []).map(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre"])).trim();
+    const ubicacion = String(pick(r, ["SC"])).trim();
 
     return {
-      key: normalizeText(parte),
+      key: normalizeText(piezaMadre),
       ubicacion,
-      descripcion,
-      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"])),
-      kgCaj: num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]))
+      descripcion: nombresPiezaMadre.has(piezaMadre) ? piezaMadre : piezaMadre,
+      kgUni: num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"])),
+      kgCaj: num(pick(r, ["Max Caj Cerv", "Max Cajon Cerv", "max caj cerv"]))
     };
   }).filter(r => r.key);
 }
