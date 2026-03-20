@@ -355,7 +355,9 @@ async function getBaseSP() {
 
     return {
       key: normalizeText(descripcion),
-      ubicacion,
+      sectores: ubicacion,
+      sc: sec ? [...sec.scSet].join(", ") : "",
+      sp: sec ? [...sec.spSet].join(", ") : "",
       descripcion,
       kgUni: num(sec?.kgUni),
       kgCaj: num(sec?.kgCaj)
@@ -583,7 +585,9 @@ async function construirStocks() {
 
     return {
       key: base.key,
-      ubicacion: base.ubicacion || "",
+      sectores: base.sectores || "",
+      sc: base.sc || "",
+      sp: base.sp || "",
       descripcion: base.descripcion || "",
       kgUni: num(base.kgUni),
       kgCaj: num(base.kgCaj),
@@ -647,7 +651,7 @@ function renderTable(rows) {
   if (!rows.length) {
     tbodyStocksGeneral.innerHTML = `
       <tr>
-        <td colspan="5" class="empty">No se encontraron datos.</td>
+        <td colspan="6" class="empty">No se encontraron datos.</td>
       </tr>
     `;
     return;
@@ -657,40 +661,8 @@ function renderTable(rows) {
 
   tbodyStocksGeneral.innerHTML = rows.map((r, index) => `
     <tr>
-      <td class="text-left">${escapeHtml(r.ubicacion || "")}</td>
-      <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
-
-      <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockSPKg, r.detalleSP, index, "sp", r.kgUni, r.kgCaj, formato)}
-      </td>
-
-      <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockPSKg, r.detallePS, index, "ps", r.kgUni, r.kgCaj, formato)}
-      </td>
-
-      <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockTallKg, r.detalleTall, index, "tall", r.kgUni, r.kgCaj, formato)}
-      </td>
-    </tr>
-  `).join("");
-
-  tbodyStocksGeneral.querySelectorAll(".mini-popup-btn-stock").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const rowIndex = Number(btn.dataset.rowIndex);
-      const tipo = btn.dataset.tipo;
-      const row = rows[rowIndex];
-      if (!row) return;
-
-      if (tipo === "sp") {
-        abrirPopupStocks(`SP - ${row.descripcion || ""}`, row.detalleSP, row.kgUni, row.kgCaj);
-      } else if (tipo === "ps") {
-        abrirPopupStocks(`PS - ${row.descripcion || ""}`, row.detallePS, row.kgUni, row.kgCaj);
-      } else {
-        abrirPopupStocks(`Tall - ${row.descripcion || ""}`, row.detalleTall, row.kgUni, row.kgCaj);
-      }
-    });
-  });
-}
+      <td class="text-left">${escapeHtml(r.sectores || "")}</td>
+      <td class="text-left">${escapeHtml(r.descripcion ||
 
 function aplicarFiltros() {
   const q = normalizeText(txtBuscar.value);
