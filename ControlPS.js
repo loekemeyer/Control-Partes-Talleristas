@@ -71,6 +71,13 @@ function formatCajones(n){
   });
 }
 
+function formatKgOnline(n){
+  return Number(n || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
 btnIndex.onclick = ()=>{
   window.location.href = "index.html";
 };
@@ -405,7 +412,7 @@ async function seleccionar(ps){
         <td>${escapeHtml(item.SP)}</td>
         <td>${escapeHtml(item.Parte)}</td>
 
-        <td>${formatDecimal(onlineKg)}</td>
+        <td>${formatKgOnline(onlineKg)}</td>
         <td>${formatCajones(onlineCaj)}</td>
         <td>${formatNumber(onlineUni)}</td>
 
