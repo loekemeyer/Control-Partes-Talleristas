@@ -645,7 +645,7 @@ function buildDetalleButton(valorKg, detalle, kgUni, kgCaj, formato, titulo) {
 }
 
 /*************************************************
- * RENDER
+ * RENDER 
  *************************************************/
 function renderTable(rows) {
   if (!rows.length) {
