@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Stocks general</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="StocksGeneral.css" />
+</head>
+<body>
+  <div class="stocks-general-page">
+    <div class="stocks-general-card">
+      <div class="stocks-general-header">
+        <div>
+          <h1>Stocks general</h1>
+          <p>Stock online por rubro: Sector Procesado, Proveedores de Servicios y Talleristas</p>
+        </div>
+
+        <div class="stocks-general-actions">
+          <button id="btnInicio" class="btn btn-dark">Inicio</button>
+        </div>
+      </div>
+
+      <div class="stocks-general-filters">
+        <div class="field">
+          <label for="txtBuscar">Buscar</label>
+          <input id="txtBuscar" type="text" placeholder="SC, SP, descripción..." />
+        </div>
+
+        <div class="field">
+          <label for="selSoloConStock">Mostrar</label>
+          <select id="selSoloConStock">
+            <option value="todos">Todos</option>
+            <option value="conStock">Solo con stock</option>
+            <option value="sinStock">Solo sin stock</option>
+          </select>
+        </div>
+
+        <div class="field field-button">
+          <button id="btnRecargar" class="btn">Recargar</button>
+        </div>
+      </div>
+
+      <div class="stocks-general-totales" id="totalesGenerales">
+        <div class="total-box">
+          <div class="label">SP Uni</div>
+          <div class="value" id="totalSPUni">0</div>
+        </div>
+        <div class="total-box">
+          <div class="label">SP Kg</div>
+          <div class="value" id="totalSPKg">0,0</div>
+        </div>
+        <div class="total-box">
+          <div class="label">PS Uni</div>
+          <div class="value" id="totalPSUni">0</div>
+        </div>
+        <div class="total-box">
+          <div class="label">PS Kg</div>
+          <div class="value" id="totalPSKg">0,0</div>
+        </div>
+        <div class="total-box">
+          <div class="label">Talleristas Uni</div>
+          <div class="value" id="totalTallUni">0</div>
+        </div>
+        <div class="total-box">
+          <div class="label">Talleristas Kg</div>
+          <div class="value" id="totalTallKg">0,0</div>
+        </div>
+      </div>
+
+      <div class="stocks-general-info">
+        <span id="lblEstado">Cargando...</span>
+      </div>
+
+      <div class="stocks-general-table-wrap">
+        <table class="stocks-general-table">
+          <thead>
+            <tr>
+              <th rowspan="2">SC</th>
+              <th rowspan="2">SP</th>
+              <th rowspan="2">Descripción</th>
+
+              <th colspan="4">Base</th>
+              <th colspan="3">Sector Procesado</th>
+              <th colspan="3">Proveedores de Servicios</th>
+              <th colspan="3">Talleristas</th>
+            </tr>
+            <tr>
+              <th>Stock Inicial</th>
+              <th>Kg x Uni</th>
+              <th>Kg x Caj</th>
+              <th>Base Caj</th>
+
+              <th>Uni</th>
+              <th>Kg</th>
+              <th>Caj</th>
+
+              <th>Uni</th>
+              <th>Kg</th>
+              <th>Caj</th>
+
+              <th>Uni</th>
+              <th>Kg</th>
+              <th>Caj</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyStocksGeneral">
+            <tr>
+              <td colspan="16" class="empty">Cargando datos...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="StocksGeneral.js"></script>
+</body>
+</html>
