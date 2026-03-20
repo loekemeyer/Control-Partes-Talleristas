@@ -545,7 +545,7 @@ selFormatoStock.addEventListener("change", aplicarFiltros);
 btnRecargar.addEventListener("click", cargarStocksGeneral);
 
 btnInicio.addEventListener("click", () => {
-  window.location.href = "../index.html";
+  window.location.href = "../Inicio/index.html";
 });
 
 cargarStocksGeneral();
