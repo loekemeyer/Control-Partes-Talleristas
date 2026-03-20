@@ -145,28 +145,40 @@ async function fetchTabla(nombre, columns = "*") {
  * Ubicación = SC
  *************************************************/
 async function getBaseSP() {
-  const [scRows, piezaMadreRows] = await Promise.all([
-    fetchTabla(TABLA_SC_KG, '*'),
-    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"')
+  const [piezaMadreRows, scRows] = await Promise.all([
+    fetchTabla(TABLA_PIEZA_MADRE, 'id,"Pieza Madre"'),
+    fetchTabla(TABLA_SC_KG, '*')
   ]);
 
-  const nombresPiezaMadre = new Set();
+  const scMap = new Map();
 
-  (piezaMadreRows || []).forEach(r => {
-    const nombre = String(r["Pieza Madre"] || "").trim();
-    if (nombre) nombresPiezaMadre.add(nombre);
+  (scRows || []).forEach(r => {
+    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const ubicacion = String(pick(r, ["SC", "sc"])).trim();
+    const kgUni = num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"]));
+    const kgCaj = num(pick(r, ["Max Caj Cerv", "max caj cerv"]));
+
+    if (!piezaMadre) return;
+
+    if (!scMap.has(normalizeText(piezaMadre))) {
+      scMap.set(normalizeText(piezaMadre), {
+        ubicacion,
+        kgUni,
+        kgCaj
+      });
+    }
   });
 
-  return (scRows || []).map(r => {
-    const piezaMadre = String(pick(r, ["Pieza Madre"])).trim();
-    const ubicacion = String(pick(r, ["SC"])).trim();
+  return (piezaMadreRows || []).map(r => {
+    const descripcion = String(r["Pieza Madre"] || "").trim();
+    const scInfo = scMap.get(normalizeText(descripcion)) || {};
 
     return {
-      key: normalizeText(piezaMadre),
-      ubicacion,
-      descripcion: nombresPiezaMadre.has(piezaMadre) ? piezaMadre : piezaMadre,
-      kgUni: num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"])),
-      kgCaj: num(pick(r, ["Max Caj Cerv", "Max Cajon Cerv", "max caj cerv"]))
+      key: normalizeText(descripcion),
+      ubicacion: scInfo.ubicacion || "",
+      descripcion,
+      kgUni: num(scInfo.kgUni),
+      kgCaj: num(scInfo.kgCaj)
     };
   }).filter(r => r.key);
 }
