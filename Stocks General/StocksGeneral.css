@@ -14,7 +14,7 @@ body {
 }
 
 .stocks-general-card {
-  max-width: 1600px;
+  max-width: 1200px;
   margin: 0 auto;
   background: #fff;
   border: 1px solid #d0d7de;
@@ -29,6 +29,7 @@ body {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .stocks-general-header h1 {
@@ -76,7 +77,7 @@ body {
   gap: 14px;
   flex-wrap: wrap;
   align-items: end;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .field {
@@ -100,6 +101,7 @@ body {
   padding: 0 12px;
   font-size: 15px;
   outline: none;
+  background: #fff;
 }
 
 .field input:focus,
@@ -111,103 +113,96 @@ body {
   min-width: auto;
 }
 
-.stocks-general-totales {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.total-box {
-  border: 1px solid #d0d7de;
-  border-radius: 14px;
-  padding: 12px;
-  background: #fafafa;
-}
-
-.total-box .label {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 6px;
-}
-
-.total-box .value {
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.stocks-general-info {
+.stocks-general-status {
   margin-bottom: 12px;
+  color: #666;
   font-size: 14px;
-  color: #555;
 }
 
 .stocks-general-table-wrap {
-  overflow: auto;
+  width: 100%;
+  overflow-x: auto;
   border: 1px solid #d0d7de;
   border-radius: 14px;
+  background: #fff;
 }
 
 .stocks-general-table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
-  min-width: 1400px;
 }
 
 .stocks-general-table thead th {
-  background: #0d1117;
+  background: #111;
   color: #fff;
-  border: 1px solid #c7c7c7;
-  padding: 10px 8px;
+  text-align: left;
+  padding: 12px 14px;
   font-size: 14px;
-  text-align: center;
+  border-right: 1px solid #2b2b2b;
+  white-space: nowrap;
+}
+
+.stocks-general-table thead th:last-child {
+  border-right: 0;
 }
 
 .stocks-general-table tbody td {
-  border: 1px solid #d9d9d9;
-  padding: 10px 8px;
-  font-size: 15px;
+  padding: 12px 14px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 14px;
+  vertical-align: middle;
   background: #fff;
 }
 
-.stocks-general-table tbody td.text-left {
-  text-align: left;
+.stocks-general-table tbody tr:hover td {
+  background: #fafafa;
 }
 
-.stocks-general-table tbody td.text-center {
-  text-align: center;
-}
-
-.stocks-general-table tbody td.text-right {
+.stocks-general-table tbody td:nth-child(3),
+.stocks-general-table tbody td:nth-child(4),
+.stocks-general-table tbody td:nth-child(5) {
   text-align: right;
-}
-
-.stocks-general-table tbody tr:nth-child(even) td {
-  background: #fcfcfc;
+  font-variant-numeric: tabular-nums;
 }
 
 .empty {
-  text-align: center;
-  padding: 20px !important;
+  text-align: center !important;
   color: #666;
+  padding: 18px !important;
 }
 
 .negativo {
-  color: #c62828;
+  color: #b42318;
   font-weight: 700;
 }
 
-.positivo {
-  color: #0a7d32;
-  font-weight: 700;
+.text-left {
+  text-align: left;
 }
 
-@media (max-width: 1100px) {
-  .stocks-general-totales {
-    grid-template-columns: repeat(2, minmax(140px, 1fr));
+.text-right {
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .stocks-general-page {
+    padding: 12px;
+  }
+
+  .stocks-general-card {
+    padding: 14px;
   }
 
   .stocks-general-header h1 {
     font-size: 28px;
+  }
+
+  .field {
+    min-width: 100%;
+  }
+
+  .stocks-general-table {
+    min-width: 640px;
   }
 }
