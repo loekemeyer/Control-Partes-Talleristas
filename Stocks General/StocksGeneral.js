@@ -361,21 +361,22 @@ async function getBaseSP() {
   }
 
   (scRows || []).forEach(r => {
-    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
-    const sc = String(pick(r, ["SC", "Sc", "sc"])).trim();
+    const piezaMadre = String(pick(r, ["Pieza Madre"])).trim();
+    const sc = String(pick(r, ["SC"])).trim();
     const kgUni = num(pick(r, ["Kg x Uni", "Kg X Uni", "kg x uni"]));
     const kgCaj = num(pick(r, ["Max Caj Cerv", "Max Cajon Cerv", "max caj cerv"]));
 
     if (!piezaMadre) return;
 
     const item = ensureItem(piezaMadre);
+
     if (sc) item.scSet.add(sc);
     if (!item.kgUni && kgUni) item.kgUni = kgUni;
     if (!item.kgCaj && kgCaj) item.kgCaj = kgCaj;
   });
 
   (spRows || []).forEach(r => {
-    const piezaMadre = String(pick(r, ["Pieza Madre", "pieza madre"])).trim();
+    const piezaMadre = String(pick(r, ["Pieza Madre"])).trim();
     const sp = String(pick(r, ["Sp", "SP", "sp"])).trim();
     const kgUni = num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"]));
     const kgCaj = num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]));
@@ -383,6 +384,7 @@ async function getBaseSP() {
     if (!piezaMadre) return;
 
     const item = ensureItem(piezaMadre);
+
     if (sp) item.spSet.add(sp);
     if (!item.kgUni && kgUni) item.kgUni = kgUni;
     if (!item.kgCaj && kgCaj) item.kgCaj = kgCaj;
@@ -390,17 +392,15 @@ async function getBaseSP() {
 
   return (piezaMadreRows || []).map(r => {
     const descripcion = String(r["Pieza Madre"] || "").trim();
-    const info = sectoresPorPieza.get(normalizeText(descripcion)) || null;
+    const info = sectoresPorPieza.get(normalizeText(descripcion));
 
-    const scTexto = info && info.scSet.size ? `SC: ${[...info.scSet].join(", ")}` : "";
-    const spTexto = info && info.spSet.size ? `SP: ${[...info.spSet].join(", ")}` : "";
-
-    const sectores = [scTexto, spTexto].filter(Boolean).join(" | ");
+    const scTexto = info?.scSet?.size ? `SC: ${[...info.scSet].join(", ")}` : "";
+    const spTexto = info?.spSet?.size ? `SP: ${[...info.spSet].join(", ")}` : "";
 
     return {
       key: normalizeText(descripcion),
-      sectores,
-      sc: info && info.scSet.size ? [...info.scSet].join(", ") : "",
+      sectores: [scTexto, spTexto].filter(Boolean).join(" | "),
+      sc: info?.scSet?.size ? [...info.scSet].join(", ") : "",
       descripcion,
       kgUni: num(info?.kgUni),
       kgCaj: num(info?.kgCaj)
