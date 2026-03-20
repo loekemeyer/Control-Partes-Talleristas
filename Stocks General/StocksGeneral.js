@@ -141,6 +141,8 @@ async function fetchTabla(nombre, columns = "*") {
 
 /*************************************************
  * BASE DESDE SP Kg
+ * Ubicación = Sp
+ * Descripción = Parte
  *************************************************/
 async function getBaseSP() {
   const data = await fetchTabla(TABLA_SP_KG, "*");
@@ -153,7 +155,7 @@ async function getBaseSP() {
       key: normalizeText(descripcion),
       ubicacion,
       descripcion,
-      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg Uni"])),
+      kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"])),
       kgCaj: num(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"]))
     };
   }).filter(r => r.key);
@@ -170,37 +172,46 @@ async function getSPMap() {
 
   const entregaPSMap = new Map();
   const enviosTallMap = new Map();
+  const entregaPSDetalle = new Map();
+  const enviosTallDetalle = new Map();
 
   (entregaPSRows || []).forEach(r => {
     const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
     const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const prov = String(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"])).trim() || "Entrega PS";
+
+    if (!key) return;
+
     addToMap(entregaPSMap, key, kg);
+
+    if (!entregaPSDetalle.has(key)) entregaPSDetalle.set(key, []);
+    entregaPSDetalle.get(key).push({ label: prov, kg });
   });
 
   (enviosTallRows || []).forEach(r => {
     const key = normalizeText(pick(r, ["Descripcion", "Descripción", "descripcion"]));
     const kg = num(pick(r, ["KG", "Kg", "kg"]));
+    const tall = String(pick(r, ["Tallerista", "tallerista", "TALLERISTA"])).trim() || "Tallerista";
+
+    if (!key) return;
+
     addToMap(enviosTallMap, key, kg);
+
+    if (!enviosTallDetalle.has(key)) enviosTallDetalle.set(key, []);
+    enviosTallDetalle.get(key).push({ label: tall, kg: -kg });
   });
 
   const result = new Map();
-
-  const keys = new Set([
-    ...entregaPSMap.keys(),
-    ...enviosTallMap.keys()
-  ]);
+  const keys = new Set([...entregaPSMap.keys(), ...enviosTallMap.keys()]);
 
   keys.forEach(key => {
-    const entregaPS = num(entregaPSMap.get(key));
-    const enviosTall = num(enviosTallMap.get(key));
+    const totalKg = num(entregaPSMap.get(key)) - num(enviosTallMap.get(key));
+    const detalle = [
+      ...(entregaPSDetalle.get(key) || []),
+      ...(enviosTallDetalle.get(key) || [])
+    ];
 
-    result.set(key, {
-      totalKg: 0 + entregaPS - enviosTall,
-      detalle: [
-        { label: "Entregas PS", kg: entregaPS },
-        { label: "Envíos Tall", kg: -enviosTall }
-      ]
-    });
+    result.set(key, { totalKg, detalle });
   });
 
   return result;
@@ -208,109 +219,119 @@ async function getSPMap() {
 
 /*************************************************
  * PS = KG Online PS
+ * stockInicial + envios - entregas
  *************************************************/
 async function getPSMap() {
-  const rows = await fetchTabla(TABLA_PARTES_PS, "*");
+  const [partesRows, entregaPSRows] = await Promise.all([
+    fetchTabla(TABLA_PARTES_PS, "*"),
+    fetchTabla(TABLA_ENTREGA_PS, "*")
+  ]);
 
-  const totalMap = new Map();
+  const baseMap = new Map();
   const detalleMap = new Map();
 
-  (rows || []).forEach(r => {
+  (partesRows || []).forEach(r => {
     const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
-    const ps = String(pick(r, ["PS", "ps", "Ps"])).trim() || "PS s/nombre";
+    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim() || "PS";
+    const sp = String(pick(r, ["SP", "Sp", "sp"])).trim();
+    const stockInicialUni = num(pick(r, ["Stock Inicial", "stock inicial", "Stock_Inicial"]));
 
-    const kgOnline = num(
-      pick(r, [
-        "KG Online",
-        "Kg Online",
-        "kg online",
-        "kg_online",
-        "KG_Online",
-        "Stock Inicial",
-        "stock inicial",
-        "Stock_Inicial"
-      ])
-    );
+    if (!key || !ps || !sp) return;
 
-    if (!key) return;
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
 
-    addToMap(totalMap, key, kgOnline);
-
-    if (!detalleMap.has(key)) detalleMap.set(key, []);
-    detalleMap.get(key).push({
-      label: ps,
-      kg: kgOnline
+    baseMap.set(k, {
+      parteKey: key,
+      ps,
+      sp,
+      stockInicialUni
     });
+  });
+
+  const envMap = new Map();
+  const entMap = new Map();
+
+  (partesRows || []).forEach(r => {
+    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+    const ps = String(pick(r, ["PS", "Ps", "ps"])).trim();
+    const sp = String(pick(r, ["SP", "Sp", "sp"])).trim();
+    const env = 0;
+
+    if (!key || !ps || !sp) return;
+
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
+    addToMap(envMap, k, env);
+  });
+
+  (entregaPSRows || []).forEach(r => {
+    const key = normalizeText(pick(r, ["Parte", "PARTE", "parte"]));
+    const ps = String(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"])).trim();
+    const sp = String(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp"])).trim();
+    const kg = num(pick(r, ["KG", "Kg", "kg"]));
+
+    if (!key || !ps || !sp) return;
+
+    const k = `${normalizeText(ps)}__${normalizeText(sp)}__${key}`;
+    addToMap(entMap, k, kg);
   });
 
   const result = new Map();
 
-  totalMap.forEach((totalKg, key) => {
-    result.set(key, {
-      totalKg,
-      detalle: (detalleMap.get(key) || []).sort((a, b) =>
-        String(a.label).localeCompare(String(b.label), "es")
-      )
+  baseMap.forEach((base, k) => {
+    const onlineKg = num(base.stockInicialUni) + num(envMap.get(k)) - num(entMap.get(k));
+
+    const parteKey = base.parteKey;
+    if (!detalleMap.has(parteKey)) detalleMap.set(parteKey, []);
+    detalleMap.get(parteKey).push({
+      label: base.ps,
+      kg: onlineKg
     });
+  });
+
+  detalleMap.forEach((detalle, parteKey) => {
+    const totalKg = detalle.reduce((acc, x) => acc + num(x.kg), 0);
+    result.set(parteKey, { totalKg, detalle });
   });
 
   return result;
 }
 
 /*************************************************
- * Tall = KG Online Tall
+ * TALL = KG Online Tall
+ * stockInicial + envios - entregas
  *************************************************/
 async function getTallMap() {
-  const rows = await fetchTabla(TABLA_PARTES_TALL, "*");
+  const tallRows = await fetchTabla(TABLA_PARTES_TALL, "*");
 
-  const totalMap = new Map();
   const detalleMap = new Map();
 
-  (rows || []).forEach(r => {
+  (tallRows || []).forEach(r => {
     const key = normalizeText(
-      pick(r, [
-        "descripcion_parte",
-        "Descripcion_parte",
-        "Descripción_parte",
-        "pieza",
-        "Pieza"
-      ])
+      pick(r, ["descripcion_parte", "Descripcion_parte", "Descripción_parte", "pieza", "Pieza"])
     );
 
     const tallerista = String(
       pick(r, ["tallerista", "Tallerista", "TALLERISTA"])
-    ).trim() || "Tallerista s/nombre";
+    ).trim() || "Tallerista";
 
-    const kgOnline = num(
-      pick(r, [
-        "kg_online",
-        "KG Online",
-        "Kg Online",
-        "kg online",
-        "KG_Online"
-      ])
+    const onlineKg = num(
+      pick(r, ["kg_online", "Kg Online", "KG Online", "kg online", "stock_online", "Stock Online"])
     );
 
     if (!key) return;
 
-    addToMap(totalMap, key, kgOnline);
-
     if (!detalleMap.has(key)) detalleMap.set(key, []);
     detalleMap.get(key).push({
       label: tallerista,
-      kg: kgOnline
+      kg: onlineKg
     });
   });
 
   const result = new Map();
 
-  totalMap.forEach((totalKg, key) => {
-    result.set(key, {
-      totalKg,
-      detalle: (detalleMap.get(key) || []).sort((a, b) =>
-        String(a.label).localeCompare(String(b.label), "es")
-      )
-    });
+  detalleMap.forEach((detalle, parteKey) => {
+    const totalKg = detalle.reduce((acc, x) => acc + num(x.kg), 0);
+    result.set(parteKey, { totalKg, detalle });
   });
 
   return result;
@@ -338,11 +359,9 @@ async function construirStocks() {
       descripcion: base.descripcion || "",
       kgUni: num(base.kgUni),
       kgCaj: num(base.kgCaj),
-
       stockSPKg: num(spInfo.totalKg),
       stockPSKg: num(psInfo.totalKg),
       stockTallKg: num(tallInfo.totalKg),
-
       detalleSP: spInfo.detalle || [],
       detallePS: psInfo.detalle || [],
       detalleTall: tallInfo.detalle || []
@@ -386,16 +405,7 @@ function buildDetalleButton(valorKg, detalle, kgUni, kgCaj, formato, titulo) {
       type="button"
       class="stock-detail-btn"
       data-titulo="${escapeHtml(titulo)}"
-      style="
-        border:0;
-        background:transparent;
-        padding:0;
-        margin:0;
-        cursor:pointer;
-        font:inherit;
-        color:inherit;
-        text-decoration:underline;
-      "
+      style="border:0;background:transparent;padding:0;margin:0;cursor:pointer;font:inherit;color:inherit;text-decoration:underline;"
     >
       ${escapeHtml(valorFormateado)}
     </button>
@@ -417,49 +427,26 @@ function renderTable(rows) {
 
   const formato = getFormatoActual();
 
-  tbodyStocksGeneral.innerHTML = rows.map((r, idx) => {
-    return `
-      <tr>
-        <td class="text-left">${escapeHtml(r.ubicacion || "")}</td>
-        <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
+  tbodyStocksGeneral.innerHTML = rows.map(r => `
+    <tr>
+      <td class="text-left">${escapeHtml(r.ubicacion || "")}</td>
+      <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
 
-        <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
-          ${buildDetalleButton(
-            r.stockSPKg,
-            r.detalleSP,
-            r.kgUni,
-            r.kgCaj,
-            formato,
-            `Desglose SP - ${r.descripcion || ""}`
-          )}
-        </td>
+      <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
+        ${buildDetalleButton(r.stockSPKg, r.detalleSP, r.kgUni, r.kgCaj, formato, `Desglose SP - ${r.descripcion || ""}`)}
+      </td>
 
-        <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
-          ${buildDetalleButton(
-            r.stockPSKg,
-            r.detallePS,
-            r.kgUni,
-            r.kgCaj,
-            formato,
-            `Desglose PS - ${r.descripcion || ""}`
-          )}
-        </td>
+      <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
+        ${buildDetalleButton(r.stockPSKg, r.detallePS, r.kgUni, r.kgCaj, formato, `Desglose PS - ${r.descripcion || ""}`)}
+      </td>
 
-        <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
-          ${buildDetalleButton(
-            r.stockTallKg,
-            r.detalleTall,
-            r.kgUni,
-            r.kgCaj,
-            formato,
-            `Desglose Talleristas - ${r.descripcion || ""}`
-          )}
-        </td>
-      </tr>
-    `;
-  }).join("");
+      <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
+        ${buildDetalleButton(r.stockTallKg, r.detalleTall, r.kgUni, r.kgCaj, formato, `Desglose Tall - ${r.descripcion || ""}`)}
+      </td>
+    </tr>
+  `).join("");
 
-  tbodyStocksGeneral.querySelectorAll(".stock-detail-btn").forEach((btn, index) => {
+  tbodyStocksGeneral.querySelectorAll(".stock-detail-btn").forEach(btn => {
     btn.addEventListener("click", e => {
       const tr = e.currentTarget.closest("tr");
       const rowIndex = [...tbodyStocksGeneral.querySelectorAll("tr")].indexOf(tr);
@@ -468,7 +455,7 @@ function renderTable(rows) {
 
       if (titulo.includes("SP")) {
         mostrarDesglose(titulo, row.detalleSP, row.kgUni, row.kgCaj, formato);
-      } else if (titulo.includes("Talleristas")) {
+      } else if (titulo.includes("Tall")) {
         mostrarDesglose(titulo, row.detalleTall, row.kgUni, row.kgCaj, formato);
       } else {
         mostrarDesglose(titulo, row.detallePS, row.kgUni, row.kgCaj, formato);
