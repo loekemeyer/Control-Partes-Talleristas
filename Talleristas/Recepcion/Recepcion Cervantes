@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Recepción (test)</title>
+
+<style>
+  *{box-sizing:border-box}
+  body{font-family:Arial;background:#fafafa;padding:18px}
+  .card{max-width:560px;margin:auto;background:#fff;border:1px solid #d0d7de;border-radius:12px;padding:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  button{padding:10px 12px;border-radius:10px;border:2px solid #d0d7de;background:#fff;font-weight:800;cursor:pointer}
+  button.active{background:#111;color:#fff;border-color:#111}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .send{background:#111;color:#fff;border:0;opacity:.45}
+  .send.enabled{opacity:1}
+  .status{margin-top:10px;font-size:14px}
+  .ok{color:#0a7a2f;font-weight:800}
+  .bad{color:#b42318}
+
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.open{display:flex}
+  .modal{
+    width:min(720px, 100%);
+    max-height:90vh;
+    overflow-y:auto;
+    background:#fff;
+    border:1px solid #d0d7de;
+    border-radius:14px;
+    padding:14px;
+    box-shadow:0 18px 50px rgba(0,0,0,.2);
+  }
+  .modal-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .modal-title{font-weight:900}
+  .xbtn{border:2px solid #d0d7de;background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:900}
+
+  .grid{
+    display:grid;
+    grid-template-columns:110px 90px minmax(220px,1fr);
+    gap:10px;
+    align-items:center;
+  }
+  .grid .h{font-weight:900;font-size:13px;color:#333}
+  .grid input[data-role="kg"]{
+    width:100% !important;
+    min-width:0;
+    text-align:center;
+    letter-spacing:0 !important;
+  }
+
+  .descCell{
+    font-size:13px;
+    color:#333;
+    line-height:1.25;
+    white-space:normal;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+  }
+
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .btn-primary{background:#111;color:#fff;border:0}
+  .btn-secondary{background:#fff}
+  .hint{font-size:12px;color:#444;margin:8px 0 0}
+
+  .hidden{display:none}
+
+  .successBox{
+    display:none;
+    margin-top:12px;
+    border:2px solid #c7e8d1;
+    background:#f3fbf6;
+    border-radius:12px;
+    padding:12px;
+  }
+  .successBox .title{font-weight:900;margin:0 0 6px}
+  .successCode{
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:2px;
+    margin:6px 0 10px;
+  }
+  .okBtn{
+    background:#111;color:#fff;border:0;
+    padding:10px 14px;border-radius:10px;font-weight:900;
+  }
+  .codeRO{
+    background:#f6f8fa;
+    width:100% !important;
+    text-align:left !important;
+    letter-spacing:0 !important;
+  }
+</style>
+</head>
+
+<body>
+<div class="card">
+  <h2 style="margin:0 0 10px">Recepción Talleristas Cervantes</h2>
+
+  <div class="row">
+    <button id="poly" type="button">Poly</button>
+    <button id="martin" type="button">Martin</button>
+    <button id="carlos" type="button">Carlos</button>
+  </div>
+
+  <div class="row">
+    <button id="lk" type="button" disabled>LK</button>
+    <button id="ch" type="button" disabled>CH</button>
+  </div>
+
+  <div id="nombreTallProv" class="status"></div>
+
+  <div class="row">
+    <button id="enviar" class="send" type="button" disabled>Enviar</button>
+  </div>
+
+  <div id="status" class="status bad">Seleccioná un nombre para continuar.</div>
+
+  <div id="successBox" class="successBox">
+    <div class="title">Envío registrado</div>
+    <div>Tu código de envío:</div>
+    <div id="successCode" class="successCode">—</div>
+    <button id="okBtn" class="okBtn" type="button">OK</button>
+  </div>
+
+  <iframe name="sheet_iframe" style="display:none"></iframe>
+  <form id="sheetForm" action="https://script.google.com/macros/s/AKfycbz3jZ7oahGOULPWKnTJGTTh_HIpLpyILu8tWkNHg6U_r5s7R3osFh3cQV5G7FUq8oXs/exec" method="POST" target="sheet_iframe" class="hidden">
+    <input type="hidden" name="payload" id="payloadField" value="">
+  </form>
+</div>
+
+<div id="overlay" class="overlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <div id="modalTitle" class="modal-title">Código y Kg</div>
+      <button id="closeModal" class="xbtn" type="button">✕</button>
+    </div>
+
+    <div class="grid" style="margin-bottom:8px">
+      <div class="h">Código</div>
+      <div class="h">Kg</div>
+      <div class="h">Descripción</div>
+    </div>
+
+    <div id="lines" class="grid"></div>
+
+    <div class="hint">Tip: completá solo kg. Acepta coma o punto decimal.</div>
+
+    <div class="modal-actions">
+      <button id="cancelModal" class="xbtn btn-secondary" type="button">Cancelar</button>
+      <button id="sendModal" class="xbtn btn-primary" type="button">Enviar</button>
+    </div>
+
+    <div id="modalMsg" class="status" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<script>
+  const SUCURSAL = "Cerv";
+
+  const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
+
+  const SUPABASE_TABLE = "Entrega Talleristas Cervantes";
+  const COL_TALLERISTA = "Tallerista";
+  const COL_MARCA = "Marca";
+  const COL_CODIGO = "Codigo";
+  const COL_DESC = "Descripcion";
+
+  const WEBAPP_BASE = "https://script.google.com/macros/s/AKfycbz3jZ7oahGOULPWKnTJGTTh_HIpLpyILu8tWkNHg6U_r5s7R3osFh3cQV5G7FUq8oXs/exec";
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const poly = document.getElementById("poly");
+  const martin = document.getElementById("martin");
+  const carlos = document.getElementById("carlos");
+
+  const lk = document.getElementById("lk");
+  const ch = document.getElementById("ch");
+
+  const enviar = document.getElementById("enviar");
+  const status = document.getElementById("status");
+  const nombreTallProv = document.getElementById("nombreTallProv");
+
+  const successBox = document.getElementById("successBox");
+  const successCodeEl = document.getElementById("successCode");
+  const okBtn = document.getElementById("okBtn");
+
+  const overlay = document.getElementById("overlay");
+  const closeModal = document.getElementById("closeModal");
+  const cancelModal = document.getElementById("cancelModal");
+  const sendModal = document.getElementById("sendModal");
+  const linesWrap = document.getElementById("lines");
+  const modalMsg = document.getElementById("modalMsg");
+
+  const sheetForm = document.getElementById("sheetForm");
+  const payloadField = document.getElementById("payloadField");
+  const iframe = document.querySelector('iframe[name="sheet_iframe"]');
+
+  let tallerista = null;
+  let empresa = null;
+  let codigoProveedorResuelto = "";
+  let codigosPorNombre = {};
+  let isSubmitting = false;
+  let lastSendCode = null;
+  let fetchedCodes = [];
+  let proveedorValido = false;
+  let marcasDisponibles = [];
+
+  function formatName(nombre){
+    const mapaNombres = {
+      POLY: "Poly",
+      MARTIN: "Martin",
+      CARLOS: "Carlos"
+    };
+
+    return mapaNombres[nombre] || (nombre.charAt(0) + nombre.slice(1).toLowerCase());
+  }
+
+  async function cargarMapaCodigos() {
+    const r = await fetch(`${WEBAPP_BASE}?action=getCodigosBotones`);
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "No se pudo cargar Cod x Tall");
+    codigosPorNombre = j.mapa || {};
+  }
+
+  async function getMarcasDisponibles(nombreTallerista){
+    const { data, error } = await sb
+      .from(SUPABASE_TABLE)
+      .select(`${COL_TALLERISTA}, ${COL_MARCA}`)
+      .eq(COL_TALLERISTA, nombreTallerista);
+
+    console.log("Marcas disponibles crudas:", { nombreTallerista, data, error });
+
+    if (error) throw error;
+
+    const marcas = [...new Set(
+      (data || [])
+        .map(r => String(r[COL_MARCA] || "").trim().toUpperCase())
+        .filter(Boolean)
+    )];
+
+    console.log("Marcas normalizadas:", marcas);
+
+    return marcas.sort();
+  }
+
+  async function fetchItemsForTallerista(nombreTallerista, marca){
+    console.log("Consultando tabla:", SUPABASE_TABLE);
+    console.log("Filtro Tallerista:", nombreTallerista);
+    console.log("Filtro Marca:", marca);
+
+    const { data, error } = await sb
+      .from(SUPABASE_TABLE)
+      .select("*")
+      .eq(COL_TALLERISTA, nombreTallerista)
+      .order(COL_CODIGO, { ascending: true });
+
+    console.log("Respuesta Supabase cruda:", { data, error });
+
+    if (error) {
+      throw new Error(`Supabase error: ${error.message}`);
+    }
+
+    const filtrados = (data || []).filter(r => {
+      const marcaFila = String(r[COL_MARCA] ?? "").trim().toUpperCase();
+      return marcaFila === String(marca).trim().toUpperCase();
+    });
+
+    console.log("Filtrados por marca normalizada:", filtrados);
+
+    const uniques = [];
+    const seen = new Set();
+
+    filtrados.forEach(r => {
+      const codigo = String(r[COL_CODIGO] ?? "").trim();
+      const desc = String(r[COL_DESC] ?? "").trim();
+
+      if (!codigo) return;
+
+      const key = codigo + "||" + desc;
+      if (seen.has(key)) return;
+
+      seen.add(key);
+      uniques.push({ codigo, desc });
+    });
+
+    return uniques;
+  }
+
+  function setMarcaButtons(disponibles){
+    const hasLK = disponibles.includes("LK");
+    const hasCH = disponibles.includes("CH");
+
+    lk.disabled = !hasLK;
+    ch.disabled = !hasCH;
+
+    if (!hasLK) lk.classList.remove("active");
+    if (!hasCH) ch.classList.remove("active");
+
+    if (hasLK && !hasCH) {
+      empresa = "LK";
+      lk.classList.add("active");
+      ch.classList.remove("active");
+    } else if (!hasLK && hasCH) {
+      empresa = "CH";
+      ch.classList.add("active");
+      lk.classList.remove("active");
+    } else if (!(hasLK && hasCH)) {
+      empresa = null;
+    }
+  }
+
+  function selectTallerista(nombre){
+    tallerista = nombre;
+    empresa = null;
+    fetchedCodes = [];
+    proveedorValido = false;
+    codigoProveedorResuelto = "";
+    marcasDisponibles = [];
+
+    poly.classList.toggle("active", nombre === "POLY");
+    martin.classList.toggle("active", nombre === "MARTIN");
+    carlos.classList.toggle("active", nombre === "CARLOS");
+
+    lk.classList.remove("active");
+    ch.classList.remove("active");
+    lk.disabled = true;
+    ch.disabled = true;
+
+    nombreTallProv.className = "status";
+    nombreTallProv.textContent = "Buscando marcas disponibles...";
+    status.className = "status bad";
+    status.textContent = "Buscando...";
+    update();
+
+    cargarOpcionesDeTallerista();
+  }
+
+  async function cargarOpcionesDeTallerista(){
+    try{
+      const nombreFormateado = formatName(tallerista);
+      marcasDisponibles = await getMarcasDisponibles(nombreFormateado);
+
+      if (!marcasDisponibles.length){
+        nombreTallProv.className = "status bad";
+        nombreTallProv.textContent = `No se encontró ${nombreFormateado} en la tabla nueva.`;
+        update();
+        return;
+      }
+
+      setMarcaButtons(marcasDisponibles);
+
+      if (marcasDisponibles.length === 1){
+        nombreTallProv.className = "status ok";
+        nombreTallProv.textContent = `${nombreFormateado}: solo ${marcasDisponibles[0]} disponible.`;
+        await resolverYBuscar();
+      } else {
+        nombreTallProv.className = "status ok";
+        nombreTallProv.textContent = `${nombreFormateado}: elegí LK o CH.`;
+        update();
+      }
+
+    } catch(e){
+      console.error(e);
+      nombreTallProv.className = "status bad";
+      nombreTallProv.textContent = "Error consultando la tabla nueva.";
+      update();
+    }
+  }
+
+  async function selectEmpresa(v){
+    if (!marcasDisponibles.includes(v)) return;
+    empresa = v;
+    lk.classList.toggle("active", v === "LK");
+    ch.classList.toggle("active", v === "CH");
+    await resolverYBuscar();
+  }
+
+  poly.onclick = () => selectTallerista("POLY");
+  martin.onclick = () => selectTallerista("MARTIN");
+  carlos.onclick = () => selectTallerista("CARLOS");
+  lk.onclick = () => selectEmpresa("LK");
+  ch.onclick = () => selectEmpresa("CH");
+
+  function ready(){
+    return !isSubmitting && !!tallerista && !!empresa && !!codigoProveedorResuelto && proveedorValido;
+  }
+
+  function update(){
+    const ok = ready();
+    enviar.disabled = !ok;
+    enviar.classList.toggle("enabled", ok);
+
+    if (ok) {
+      status.className = "status ok";
+      status.textContent = "Listo para continuar.";
+    } else if (tallerista && !empresa && marcasDisponibles.length > 1) {
+      status.className = "status bad";
+      status.textContent = "Elegí LK o CH.";
+    } else {
+      status.className = "status bad";
+      status.textContent = "Completá todo para continuar.";
+    }
+  }
+
+  async function resolverYBuscar(){
+    fetchedCodes = [];
+    proveedorValido = false;
+    codigoProveedorResuelto = "";
+
+    if (!tallerista || !empresa){
+      update();
+      return;
+    }
+
+    const fila = codigosPorNombre[tallerista];
+    if (!fila){
+      nombreTallProv.className = "status bad";
+      nombreTallProv.textContent = "No existe ese tallerista en Cod x Tall.";
+      update();
+      return;
+    }
+
+    codigoProveedorResuelto = String(fila[empresa] || "").trim();
+    if (!codigoProveedorResuelto){
+      nombreTallProv.className = "status bad";
+      nombreTallProv.textContent = `No hay código de proveedor para ${empresa}.`;
+      update();
+      return;
+    }
+
+    nombreTallProv.className = "status";
+    nombreTallProv.textContent = `Buscando artículos para ${formatName(tallerista)} / ${empresa}...`;
+
+    try{
+      fetchedCodes = await fetchItemsForTallerista(formatName(tallerista), empresa);
+
+      if (fetchedCodes.length){
+        proveedorValido = true;
+        nombreTallProv.className = "status ok";
+        nombreTallProv.textContent = `${formatName(tallerista)} / ${empresa} - cód. prov. ${codigoProveedorResuelto}`;
+      } else {
+        proveedorValido = false;
+        nombreTallProv.className = "status bad";
+        nombreTallProv.textContent = `No hay artículos para ${formatName(tallerista)} / ${empresa}.`;
+      }
+    } catch(e){
+      console.error(e);
+      proveedorValido = false;
+      nombreTallProv.className = "status bad";
+      nombreTallProv.textContent = "Error consultando artículos.";
+    }
+
+    update();
+  }
+
+  function arDateISO(){
+    const fmt = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    return fmt.format(new Date());
+  }
+
+  function genNumericCode(len = 4){
+  const min = Math.pow(10, len - 1);
+  const max = Math.pow(10, len) - 1;
+  return String(Math.floor(min + Math.random() * (max - min + 1)));
+}
+
+  function showSuccess(code){
+    successCodeEl.textContent = code;
+    successBox.style.display = "block";
+  }
+
+  function hideSuccess(){
+    successBox.style.display = "none";
+    successCodeEl.textContent = "—";
+  }
+
+  function closeModalFn(){
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden","true");
+  }
+
+  function openModalFn(){
+    modalMsg.textContent = "";
+    modalMsg.className = "status";
+    overlay.classList.add("open");
+    overlay.setAttribute("aria-hidden","false");
+  }
+
+  function resetAll(){
+    tallerista = null;
+    empresa = null;
+    codigoProveedorResuelto = "";
+    fetchedCodes = [];
+    proveedorValido = false;
+    marcasDisponibles = [];
+
+    poly.classList.remove("active");
+    martin.classList.remove("active");
+    carlos.classList.remove("active");
+    lk.classList.remove("active");
+    ch.classList.remove("active");
+    lk.disabled = true;
+    ch.disabled = true;
+
+    nombreTallProv.textContent = "";
+    nombreTallProv.className = "status";
+
+    closeModalFn();
+    linesWrap.innerHTML = "";
+    modalMsg.textContent = "";
+    modalMsg.className = "status";
+
+    isSubmitting = false;
+    lastSendCode = null;
+
+    sendModal.disabled = false;
+    closeModal.disabled = false;
+    cancelModal.disabled = false;
+
+    hideSuccess();
+    update();
+  }
+
+  okBtn.onclick = () => resetAll();
+
+  function buildModalLinesWithCodes(items){
+    linesWrap.innerHTML = "";
+
+    if (!items.length){
+      const msg = document.createElement("div");
+      msg.style.gridColumn = "1 / -1";
+      msg.className = "status bad";
+      msg.textContent = "No hay códigos asociados.";
+      linesWrap.appendChild(msg);
+      return;
+    }
+
+    items.forEach((item, i) => {
+      const code = document.createElement("input");
+      code.type = "text";
+      code.value = item.codigo;
+      code.readOnly = true;
+      code.className = "codeRO";
+      code.setAttribute("data-role","codigo");
+      code.setAttribute("data-idx", String(i));
+
+      const kg = document.createElement("input");
+      kg.type = "text";
+      kg.inputMode = "decimal";
+      kg.placeholder = "0";
+      kg.setAttribute("data-role","kg");
+      kg.setAttribute("data-idx", String(i));
+
+      kg.addEventListener("input", () => {
+        let v = kg.value;
+        v = v.replace(/[^0-9.,]/g, "");
+        if (v.startsWith(",") || v.startsWith(".")) v = "0" + v;
+
+        const firstSepIndex = v.search(/[.,]/);
+        if (firstSepIndex !== -1) {
+          const before = v.slice(0, firstSepIndex + 1);
+          const after = v.slice(firstSepIndex + 1).replace(/[.,]/g, "");
+          v = before + after;
+        }
+        kg.value = v;
+      });
+
+      const desc = document.createElement("div");
+      desc.className = "descCell";
+      desc.textContent = item.desc || "";
+
+      linesWrap.appendChild(code);
+      linesWrap.appendChild(kg);
+      linesWrap.appendChild(desc);
+    });
+
+    const firstKg = linesWrap.querySelector('input[data-role="kg"][data-idx="0"]');
+    if (firstKg) firstKg.focus();
+  }
+
+  function normalizeKgInput(value){
+    let v = String(value || "").trim();
+    if (!v) return "";
+
+    v = v.replace(/\s+/g, "");
+    if (v.startsWith(",") || v.startsWith(".")) v = "0" + v;
+    v = v.replace(/[^0-9.,]/g, "");
+
+    const firstSepIndex = v.search(/[.,]/);
+    if (firstSepIndex !== -1) {
+      const intPart = v.slice(0, firstSepIndex);
+      const decPart = v.slice(firstSepIndex + 1).replace(/[.,]/g, "");
+      v = intPart + "." + decPart;
+    }
+
+    if (v === "." || v === "") return "";
+    return v;
+  }
+
+  function getItemsFromModal(){
+  const codes = Array.from(linesWrap.querySelectorAll('input[data-role="codigo"]'));
+
+  return codes.map((c, i) => {
+    const kgEl = linesWrap.querySelector(`input[data-role="kg"][data-idx="${i}"]`);
+    const kgStr = kgEl ? normalizeKgInput(kgEl.value) : "";
+    const itemBase = fetchedCodes[i] || {};
+
+    return {
+      codigo: String(c.value || "").trim(),
+      kg: kgStr,
+      desc: String(itemBase.desc || "").trim()
+    };
+  });
+}
+
+  function sumKg(items){
+    return items.reduce((acc, it) => acc + (Number(it.kg) || 0), 0);
+  }
+
+  function filterItemsToSend(items){
+    return items.filter(it => {
+      const n = Number(it.kg);
+      return it.kg !== "" && !Number.isNaN(n) && n > 0;
+    });
+  }
+
+  enviar.onclick = async () => {
+    if (!proveedorValido){
+      status.className = "status bad";
+      status.textContent = "No hay una selección válida.";
+      return;
+    }
+    if (!ready()) return;
+
+    hideSuccess();
+
+    try{
+      enviar.disabled = true;
+      enviar.classList.remove("enabled");
+
+      if (!fetchedCodes.length){
+        status.className = "status bad";
+        status.textContent = "No hay códigos asociados.";
+        return;
+      }
+
+      buildModalLinesWithCodes(fetchedCodes);
+      openModalFn();
+
+    } catch (e){
+      console.error(e);
+      status.className = "status bad";
+      status.textContent = "Error armando la ventana.";
+    } finally {
+      enviar.disabled = !ready();
+      update();
+    }
+  };
+
+  closeModal.onclick = () => { if (!isSubmitting) closeModalFn(); };
+  cancelModal.onclick = () => { if (!isSubmitting) closeModalFn(); };
+
+  overlay.addEventListener("click", (e) => {
+    if (!isSubmitting && e.target === overlay) closeModalFn();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && overlay.classList.contains("open") && !isSubmitting) closeModalFn();
+  });
+
+  iframe.addEventListener("load", () => {
+    if (!isSubmitting) return;
+
+    isSubmitting = false;
+    sendModal.disabled = false;
+    closeModal.disabled = false;
+    cancelModal.disabled = false;
+
+    update();
+
+    modalMsg.className = "status ok";
+    modalMsg.textContent = "Enviado a Sheet.";
+    status.className = "status ok";
+    status.textContent = "Enviado a Sheet.";
+
+    closeModalFn();
+
+    if (lastSendCode) showSuccess(lastSendCode);
+  });
+
+  sendModal.onclick = () => {
+    if (isSubmitting) return;
+
+    if (!fetchedCodes.length){
+      modalMsg.className = "status bad";
+      modalMsg.textContent = "No hay códigos para enviar.";
+      return;
+    }
+
+    const rawItems = getItemsFromModal();
+const items = filterItemsToSend(rawItems);
+
+if (items.length === 0){
+  modalMsg.className = "status bad";
+  modalMsg.textContent = "Completá al menos un kg (> 0).";
+  return;
+}
+
+const detalle = items
+  .map(it => `${it.codigo} - ${it.desc} - ${it.kg} kg`)
+  .join("\n");
+
+const ok = confirm(
+  `¿Está seguro con las cantidades?\n\n${detalle}`
+);
+if (!ok) return;
+
+lastSendCode = genNumericCode(4);
+
+    const payload = {
+      fecha: arDateISO(),
+      empresa,
+      codTallProv: codigoProveedorResuelto,
+      sucursal: SUCURSAL,
+      codigoEnvio: lastSendCode,
+      items
+    };
+
+    try{
+      isSubmitting = true;
+      sendModal.disabled = true;
+      closeModal.disabled = true;
+      cancelModal.disabled = true;
+
+      update();
+
+      modalMsg.className = "status";
+      modalMsg.textContent = "Enviando a Sheet...";
+
+      payloadField.value = JSON.stringify(payload);
+      sheetForm.submit();
+
+    } catch(e){
+      isSubmitting = false;
+      sendModal.disabled = false;
+      closeModal.disabled = false;
+      cancelModal.disabled = false;
+
+      update();
+
+      modalMsg.className = "status bad";
+      modalMsg.textContent = "Error enviando: " + (e?.message || e);
+    }
+  };
+
+  cargarMapaCodigos()
+    .then(() => update())
+    .catch(err => {
+      console.error(err);
+      status.className = "status bad";
+      status.textContent = "No se pudo cargar la hoja Cod x Tall.";
+    });
+</script>
+</body>
+</html>
