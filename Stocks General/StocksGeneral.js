@@ -4,7 +4,7 @@ alert("Se actualizó StocksGeneral.js");
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /*************************************************
  * TABLAS
@@ -14,7 +14,7 @@ const TABLA_PARTES_PS = "Partes x PS";
 const TABLA_PARTES_TALL = "Partes x Tallerista";
 const TABLA_ENTREGA_PS = "Entrega a PS";
 const TABLA_ENVIOS_TALL = "Envios a Talleristas";
-
+const TABLA_PIEZA_MADRE = "Pieza Madre";
 /*************************************************
  * DOM
  *************************************************/
@@ -127,9 +127,10 @@ function addToMap(map, key, value) {
   map.set(key, (map.get(key) || 0) + num(value));
 }
 
-const { data, error } = await sb
-  .from(nombre)
-  .select(columns);
+async function fetchTabla(nombre, columns = "*") {
+  const { data, error } = await sb
+    .from(nombre)
+    .select(columns);
 
   if (error) {
     console.error(`Error en tabla ${nombre}:`, error);
@@ -145,14 +146,35 @@ const { data, error } = await sb
  * Descripción = Parte
  *************************************************/
 async function getBaseSP() {
-  const data = await fetchTabla(TABLA_SP_KG, "*");
+  const [spRows, piezaMadreRows] = await Promise.all([
+    fetchTabla(TABLA_SP_KG, "*"),
+    fetchTabla(TABLA_PIEZA_MADRE, '*')
+  ]);
 
-  return (data || []).map(r => {
+  const piezaMadreMap = new Map();
+
+  (piezaMadreRows || []).forEach(r => {
+    const id = String(pick(r, ["id"])).trim();
+    const nombre = String(pick(r, ["Pieza Madre"])).trim();
+
+    if (!id) return;
+    piezaMadreMap.set(id, nombre);
+  });
+
+  return (spRows || []).map(r => {
     const ubicacion = String(pick(r, ["Sp", "SP", "sp"])).trim();
-    const descripcion = String(pick(r, ["Parte", "PARTE", "parte"])).trim();
+
+    const parte = String(pick(r, ["Parte", "PARTE", "parte"])).trim();
+    const piezaMadreId = String(
+      pick(r, ["Pieza Madre", "pieza_madre", "pieza_madre_id", "Pieza Madre id", "pieza madre"])
+    ).trim();
+
+    const descripcion =
+      piezaMadreMap.get(piezaMadreId) ||
+      parte;
 
     return {
-      key: normalizeText(descripcion),
+      key: normalizeText(parte),
       ubicacion,
       descripcion,
       kgUni: num(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"])),
