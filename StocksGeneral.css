@@ -1,0 +1,213 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f6f8;
+  color: #111;
+}
+
+.stocks-general-page {
+  padding: 24px;
+}
+
+.stocks-general-card {
+  max-width: 1600px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+
+.stocks-general-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.stocks-general-header h1 {
+  margin: 0 0 6px;
+  font-size: 36px;
+}
+
+.stocks-general-header p {
+  margin: 0;
+  color: #666;
+}
+
+.stocks-general-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 1px solid #c9d1d9;
+  background: #fff;
+  color: #111;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn:hover {
+  background: #f3f4f6;
+}
+
+.btn-dark {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.btn-dark:hover {
+  opacity: .92;
+}
+
+.stocks-general-filters {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #444;
+}
+
+.field input,
+.field select {
+  height: 42px;
+  border: 1px solid #c9d1d9;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 15px;
+  outline: none;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: #4b89ff;
+}
+
+.field-button {
+  min-width: auto;
+}
+
+.stocks-general-totales {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.total-box {
+  border: 1px solid #d0d7de;
+  border-radius: 14px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.total-box .label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.total-box .value {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.stocks-general-info {
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #555;
+}
+
+.stocks-general-table-wrap {
+  overflow: auto;
+  border: 1px solid #d0d7de;
+  border-radius: 14px;
+}
+
+.stocks-general-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1400px;
+}
+
+.stocks-general-table thead th {
+  background: #0d1117;
+  color: #fff;
+  border: 1px solid #c7c7c7;
+  padding: 10px 8px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.stocks-general-table tbody td {
+  border: 1px solid #d9d9d9;
+  padding: 10px 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.stocks-general-table tbody td.text-left {
+  text-align: left;
+}
+
+.stocks-general-table tbody td.text-center {
+  text-align: center;
+}
+
+.stocks-general-table tbody td.text-right {
+  text-align: right;
+}
+
+.stocks-general-table tbody tr:nth-child(even) td {
+  background: #fcfcfc;
+}
+
+.empty {
+  text-align: center;
+  padding: 20px !important;
+  color: #666;
+}
+
+.negativo {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.positivo {
+  color: #0a7d32;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .stocks-general-totales {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .stocks-general-header h1 {
+    font-size: 28px;
+  }
+}
