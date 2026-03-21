@@ -1,4 +1,5 @@
 "use strict";
+alert("JS cargado: " + new Date().toISOString());
 
 /* =========================================================
    BLOQUE: CONFIG SUPABASE
