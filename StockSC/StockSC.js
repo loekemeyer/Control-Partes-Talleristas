@@ -98,7 +98,6 @@ async function cargarBaseSCKg() {
       "SC",
       "Max Caj Cerv",
       "N Fleje",
-      "KG Mat PARTE C/Desp",
       "Kg X Uni",
       "Pieza Madre",
       "Stock Inicial"
@@ -193,9 +192,11 @@ function renderTabla(scRows, enviosPSData) {
     const stockInicial = parseDecimal(r["Stock Inicial"]);
     const kgXUni = parseDecimal(r["Kg X Uni"]);
     const maxCajCerv = parseDecimal(r["Max Caj Cerv"]);
-    const kgMatParte = parseDecimal(r["KG Mat PARTE C/Desp"]);
     const nFleje = String(r["N Fleje"] || "").trim();
     const piezaMadre = String(r["Pieza Madre"] || "").trim();
+
+    // Esta columna conflictiva se deja en 0 por ahora
+    const kgMatParte = 0;
 
     /* =========================================================
        BLOQUE: FABRICACIÓN
