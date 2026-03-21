@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Inicio</title>
+  <title>Selector</title>
 
   <style>
     * { box-sizing: border-box; }
@@ -12,35 +12,33 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #d9d9de;
-      padding: 24px;
+      padding: 20px;
     }
 
-    .contenedor {
-      max-width: 1100px;
-      margin: 0 auto;
+    .container {
+      max-width: 900px;
+      margin: auto;
       display: flex;
+      gap: 20px;
       flex-wrap: wrap;
-      gap: 24px;
       justify-content: center;
-      align-items: flex-start;
     }
 
-    .modulo {
+    .card {
+      flex: 1 1 380px;
       background: #ececec;
+      border: 1px solid #cfcfcf;
       border-radius: 18px;
-      padding: 22px 20px 26px;
-      width: 320px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 22px 20px 28px;
     }
 
-    .modulo h2 {
-      margin: 0 0 18px 0;
+    h2 {
+      margin: 0 0 18px;
+      font-size: 22px;
       text-align: center;
-      font-size: 24px;
-      color: #222;
     }
 
-    .botonera {
+    .botones {
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -49,60 +47,65 @@
 
     .btn-opcion {
       width: 100%;
-      max-width: 240px;
-      padding: 12px 18px;
-      border: 2px solid #b5b5b5;
+      max-width: 260px;
+      height: 48px;
       border-radius: 999px;
+      border: 3px solid #b9b9b9;
       background: #f7f7f7;
-      color: #222;
       font-size: 16px;
       cursor: pointer;
-      transition: all 0.15s ease;
     }
 
     .btn-opcion:hover {
-      background: #e7e7e7;
-      border-color: #8f8f8f;
-      font-weight: bold;
-    }
-
-    @media (max-width: 768px) {
-      .modulo {
-        width: 100%;
-        max-width: 420px;
-      }
+      border-color: #7f7f7f;
+      font-weight: 700;
+      background: #e5e5e5;
     }
   </style>
 </head>
+
 <body>
 
-  <div class="contenedor">
+  <div class="container">
 
-    <div class="modulo">
-      <h2>Talleristas</h2>
-      <div class="botonera">
-        <button class="btn-opcion" data-link="../Talleristas/Control Tall/ControlTall.html">Control</button>
-        <button class="btn-opcion" data-link="../Talleristas/Envios/EnviosTall.html">Envíos</button>
-        <button class="btn-opcion" data-link="../Talleristas/Recepcion/Recepcion Cervantes.html">Entrega Cervantes</button>
-        <button class="btn-opcion" data-link="../Talleristas/Recepcion/Recepcion Virgilio.html">Entrega Virgilio</button>
+    <!-- TALLERISTA -->
+    <div class="card">
+      <h2>Tallerista</h2>
+
+      <div class="botones">
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Talleristas/Control Tall/ControlTall.html">Control</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Talleristas/Envios/EnviosTall.html">Envío</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Talleristas/Recepcion/Recepcion Cervantes.html">Entrega Cervantes</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Talleristas/Recepcion/Recepcion Virgilio.html">Entrega Virgilio</button>
       </div>
     </div>
 
-    <div class="modulo">
-      <h2>Prov Serv</h2>
-      <div class="botonera">
-        <button class="btn-opcion" data-link="../Prov Serv/Control/ControlPS.html">Control</button>
-        <button class="btn-opcion" data-link="../Prov Serv/Envios/EnviosPS.html">Envíos</button>
-        <button class="btn-opcion" data-link="../Prov Serv/Entregas/EntregaPS.html">Entregas</button>
+    <!-- PS -->
+    <div class="card">
+      <h2>PS</h2>
+
+      <div class="botones">
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Prov Serv/Control/ControlPS.html">Control</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Prov Serv/Envios/EnviosPS.html">Envío</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Prov Serv/Entregas/EntregaPS.html">Entrega</button>
       </div>
     </div>
 
-    <div class="modulo">
+    <!-- STOCKS -->
+    <div class="card">
       <h2>Stocks</h2>
-      <div class="botonera">
-        <button class="btn-opcion" data-link="../StockSP/StockSP.html">Stock SP</button>
-        <button class="btn-opcion" data-link="../StockSC/StockSC.html">Stock SC</button>
-        <button class="btn-opcion" data-link="../Stocks General/StocksGeneral.html">Stocks General</button>
+
+      <div class="botones">
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/StockSP/StockSP.html">Stock SP</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/StockSC/StockSC.html">Stock SC</button>
+
+        <button class="btn-opcion" data-link="/Control-Partes-Talleristas/Stocks General/StocksGeneral.html">Stocks general</button>
       </div>
     </div>
 
@@ -111,8 +114,7 @@
   <script>
     document.querySelectorAll(".btn-opcion").forEach(btn => {
       btn.addEventListener("click", () => {
-        const link = btn.dataset.link;
-        if (link) window.location.href = link;
+        window.location.href = btn.dataset.link;
       });
     });
   </script>
