@@ -74,72 +74,35 @@
     }
   </style>
 </head>
-
 <body>
 
   <div class="contenedor">
 
-    <!-- TALLERISTAS -->
     <div class="modulo">
       <h2>Talleristas</h2>
       <div class="botonera">
-
-        <button class="btn-opcion" data-link="./Talleristas/Control Tall/ControlTall.html">
-          Control
-        </button>
-
-        <button class="btn-opcion" data-link="./Talleristas/Envios/EnviosTall.html">
-          Envíos
-        </button>
-
-        <button class="btn-opcion" data-link="./Talleristas/Recepcion/Recepcion Cervantes.html">
-          Entrega Cervantes
-        </button>
-
-        <button class="btn-opcion" data-link="./Talleristas/Recepcion/Recepcion Virgilio.html">
-          Entrega Virgilio
-        </button>
-
+        <button class="btn-opcion" data-link="../Talleristas/Control Tall/ControlTall.html">Control</button>
+        <button class="btn-opcion" data-link="../Talleristas/Envios/EnviosTall.html">Envíos</button>
+        <button class="btn-opcion" data-link="../Talleristas/Recepcion/Recepcion Cervantes.html">Entrega Cervantes</button>
+        <button class="btn-opcion" data-link="../Talleristas/Recepcion/Recepcion Virgilio.html">Entrega Virgilio</button>
       </div>
     </div>
 
-    <!-- PROV SERV -->
     <div class="modulo">
       <h2>Prov Serv</h2>
       <div class="botonera">
-
-        <button class="btn-opcion" data-link="./Prov Serv/Control/ControlPS.html">
-          Control
-        </button>
-
-        <button class="btn-opcion" data-link="./Prov Serv/Envios/EnviosPS.html">
-          Envíos
-        </button>
-
-        <button class="btn-opcion" data-link="./Prov Serv/Entregas/EntregaPS.html">
-          Entregas
-        </button>
-
+        <button class="btn-opcion" data-link="../Prov Serv/Control/ControlPS.html">Control</button>
+        <button class="btn-opcion" data-link="../Prov Serv/Envios/EnviosPS.html">Envíos</button>
+        <button class="btn-opcion" data-link="../Prov Serv/Entregas/EntregaPS.html">Entregas</button>
       </div>
     </div>
 
-    <!-- STOCKS -->
     <div class="modulo">
       <h2>Stocks</h2>
       <div class="botonera">
-
-        <button class="btn-opcion" data-link="./StockSP/StockSP.html">
-          Stock SP
-        </button>
-
-        <button class="btn-opcion" data-link="./StockSC/StockSC.html">
-          Stock SC
-        </button>
-
-        <button class="btn-opcion" data-link="./Stocks General/StocksGeneral.html">
-          Stocks General
-        </button>
-
+        <button class="btn-opcion" data-link="../StockSP/StockSP.html">Stock SP</button>
+        <button class="btn-opcion" data-link="../StockSC/StockSC.html">Stock SC</button>
+        <button class="btn-opcion" data-link="../Stocks General/StocksGeneral.html">Stocks General</button>
       </div>
     </div>
 
@@ -148,7 +111,7 @@
   <script>
     document.querySelectorAll(".btn-opcion").forEach(btn => {
       btn.addEventListener("click", () => {
-        const link = btn.getAttribute("data-link");
+        const link = btn.dataset.link;
         if (link) window.location.href = link;
       });
     });
