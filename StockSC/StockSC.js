@@ -93,8 +93,7 @@ function sortKeyFechaDDMM(value) {
 async function cargarBaseSCKg() {
   const { data, error } = await supabaseClient
     .from("SC Kg")
-    .select(
-      `
+    .select(`
       "Descripcion",
       "SC",
       "Max Caj Cerv",
@@ -103,13 +102,12 @@ async function cargarBaseSCKg() {
       "Kg X Uni",
       "Pieza Madre",
       "Stock Inicial"
-    `,
-    )
+    `)
     .order("SC", { ascending: true });
 
   if (error) {
-    console.error(error);
-    throw new Error("Error al leer SC Kg");
+    console.error("ERROR SC Kg:", error);
+    throw new Error(error.message || "Error al leer SC Kg");
   }
 
   return data || [];
@@ -118,19 +116,17 @@ async function cargarBaseSCKg() {
 async function cargarEnviosPS() {
   const { data, error } = await supabaseClient
     .from("Envios a PS")
-    .select(
-      `
+    .select(`
       "Dia-mes",
       "Sector SC",
       "Cajones",
       "KG"
-    `,
-    )
+    `)
     .limit(20000);
 
   if (error) {
-    console.error(error);
-    throw new Error("Error al leer Envios a PS");
+    console.error("ERROR Envios a PS:", error);
+    throw new Error(error.message || "Error al leer Envios a PS");
   }
 
   return data || [];
@@ -368,7 +364,7 @@ async function cargarTodo() {
     renderTabla(scRows, enviosPSData);
     setStatus(`Encontradas ${scRows.length} piezas`);
   } catch (err) {
-    console.error(err);
+    console.error("ERROR GENERAL:", err);
     setStatus(err.message || "Error al cargar datos");
   }
 }
