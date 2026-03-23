@@ -300,7 +300,7 @@ function renderTabla(spRows, entregasPSData, enviosTallData) {
 
         <td class="center">
           <div class="cell-combo">
-            <span class="cell-total">${escapeHtml(formatDecimal(entregasPSUni))}</span>
+            <span class="cell-total">${escapeHtml(formatNumber(entregasPSUni))}</span>
             <button
               type="button"
               class="mini-popup-btn"
