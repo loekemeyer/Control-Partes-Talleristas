@@ -10,6 +10,7 @@ const TABLA_PARTES = "Partes x PS";
 const TABLA_SP_KG = "SP Kg";
 const TABLA_ENVIOS_PS = "Envios a PS";
 const TABLA_ENTREGAS_PS = "Entregas PS";
+const TABLA_ENVIOS_TALLERISTAS = "Envios a Talleristas";
 
 /*************************************************
  * DOM
@@ -27,6 +28,7 @@ let partesCache = null;
 let spKgCache = null;
 let enviosPSCache = null;
 let entregasPSCache = null;
+let enviosTalleristasCache = null;
 let listaPS = [];
 let psActivo = "";
 
@@ -157,7 +159,7 @@ async function cargarPartes(){
 }
 
 async function cargarSPKG(){
-  if(spKgCache) return spKgCache;
+  if (spKgCache) return spKgCache;
 
   const { data, error } = await supabaseClient.from(TABLA_SP_KG).select("*");
 
@@ -168,13 +170,24 @@ async function cargarSPKG(){
 
   const map = new Map();
 
-  (data || []).forEach(r=>{
+  (data || []).forEach(r => {
     const key = String(r.Sp || r.SP || "").trim().toLowerCase();
     if (!key) return;
 
     map.set(key, {
-      kgUni: parseDecimal(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"])),
-      kgCaj: parseDecimal(pick(r, ["KG Cajon", "KG x Cajon", "kg cajon", "kg x cajon"])),
+      kgUni: parseDecimal(pick(r, [
+        "Kg x UNI",
+        "Kg x Uni",
+        "kg x uni",
+        "Kg x UN",
+        "Kg Uni"
+      ])),
+      kgCaj: parseDecimal(pick(r, [
+        "KG Cajon",
+        "KG x Cajon",
+        "kg cajon",
+        "kg x cajon"
+      ])),
       stockInicial: parseDecimal(pick(r, [
         "Stock Inicial",
         "Stock inicial",
@@ -183,6 +196,12 @@ async function cargarSPKG(){
         "Stock_Inicial",
         "Stock Ini",
         "Stock"
+      ])),
+      maxCajonSPTotal: parseDecimal(pick(r, [
+        "Max Cajon SP Total",
+        "MaxCajonSPTotal",
+        "Max Cajon",
+        "Max Caj"
       ]))
     });
   });
@@ -281,6 +300,51 @@ async function cargarEntregasPS(){
   return entregasPSCache;
 }
 
+async function cargarEnviosTalleristas(){
+  if(enviosTalleristasCache) return enviosTalleristasCache;
+
+  const { data, error } = await supabaseClient
+    .from(TABLA_ENVIOS_TALLERISTAS)
+    .select("*");
+
+  if (error){
+    console.error(error);
+    throw new Error("Error al leer Envios a Talleristas");
+  }
+
+  const detalleMap = new Map();
+  const totalKgMap = new Map();
+
+  (data || []).forEach(r=>{
+    const sectorSP = normalizeText(pick(r, [
+      "Sector SP",
+      "Sector_SP",
+      "sector sp",
+      "sector_sp",
+      "SP",
+      "Sp",
+      "Sector"
+    ]));
+    const fecha = String(pick(r, ["Dia-mes", "Dia_mes", "dia-mes", "dia_mes"]) || "").trim();
+    const kg = parseDecimal(pick(r, ["KG", "Kg", "kg"]));
+
+    if (!sectorSP) return;
+    if (!kg) return;
+
+    if (!detalleMap.has(sectorSP)) detalleMap.set(sectorSP, []);
+    detalleMap.get(sectorSP).push({ fecha, kg });
+
+    totalKgMap.set(sectorSP, (totalKgMap.get(sectorSP) || 0) + kg);
+  });
+
+  enviosTalleristasCache = {
+    detalleMap,
+    totalKgMap
+  };
+
+  return enviosTalleristasCache;
+}
+
 function obtenerEnviosPS(ps, sp, parte, enviosData, kgXUni){
   const key = `${normalizeText(ps)}__${normalizeText(sp)}`;
 
@@ -345,14 +409,15 @@ async function seleccionar(ps){
     b.classList.toggle("active", b.textContent === ps);
   });
 
-  let partes, spKg, enviosData, entregasData;
+  let partes, spKg, enviosData, entregasData, enviosTallData;
 
   try{
-    [partes, spKg, enviosData, entregasData] = await Promise.all([
+    [partes, spKg, enviosData, entregasData, enviosTallData] = await Promise.all([
       cargarPartes(),
       cargarSPKG(),
       cargarEnviosPS(),
-      cargarEntregasPS()
+      cargarEntregasPS(),
+      cargarEnviosTalleristas()
     ]);
   }catch(err){
     console.error(err);
@@ -366,7 +431,7 @@ async function seleccionar(ps){
 
   filas.forEach(item=>{
     const key = String(item.SP || item.Sp || "").trim().toLowerCase();
-    const info = spKg.get(key) || { kgUni: 0, kgCaj: 0, stockInicial: 0 };
+    const info = spKg.get(key) || { kgUni: 0, kgCaj: 0, stockInicial: 0, maxCajonSPTotal: 0 };
 
     const enviosInfo = obtenerEnviosPS(
       ps,
@@ -385,14 +450,33 @@ async function seleccionar(ps){
     );
 
     const stockInicial = Number(info.stockInicial || 0);
-    const totalEnv = Number(enviosInfo.totalUni || 0);
-    const totalEnt = Number(entregasInfo.totalUni || 0);
+    const kgXUni = Number(info.kgUni || 0);
+    const kgXCaj = Number(info.kgCaj || 0);
+    const maxCajonSPTotal = Number(info.maxCajonSPTotal || 0);
 
-    const onlineUni = stockInicial + totalEnv - totalEnt;
-    const onlineKg = onlineUni * Number(info.kgUni || 0);
-    const onlineCaj = Number(info.kgCaj || 0) > 0 ? (onlineKg / Number(info.kgCaj)) : 0;
+    // ONLINE PS
+    const onlinePSKg = Number(enviosInfo.totalKg || 0) - Number(entregasInfo.totalKg || 0);
+    const onlinePSCaj = kgXCaj > 0 ? (onlinePSKg / kgXCaj) : 0;
+    const onlinePSUni = kgXUni > 0 ? Math.floor(onlinePSKg / kgXUni) : 0;
 
-    const enviar = 0;
+    // ONLINE SP
+    const sectorKey = normalizeText(item.SP || item.Sp || "");
+    const entregasPSKgSP = Number(entregasData.totalKgMap.get(`${normalizeText(ps)}__${sectorKey}`) || 0);
+    const enviosTallKgSP = Number(enviosTallData.totalKgMap.get(sectorKey) || 0);
+
+    const onlineSPKg = stockInicial + entregasPSKgSP - enviosTallKgSP;
+    const onlineSPCaj = kgXCaj > 0 ? (onlineSPKg / kgXCaj) : 0;
+
+    // TABLA: ONLINE muestra PS
+    const onlineKg = onlinePSKg;
+    const onlineCaj = onlinePSCaj;
+    const onlineUni = onlinePSUni;
+
+    // ENVIAR EN CAJONES
+    const enviar = Math.max(
+      0,
+      Math.ceil(maxCajonSPTotal - onlineSPCaj - onlinePSCaj)
+    );
 
     const popupEnviosItems = enviosInfo.detalle.length
       ? enviosInfo.detalle
@@ -420,7 +504,7 @@ async function seleccionar(ps){
 
         <td class="center">
           <div class="cell-combo">
-            <span class="cell-total">${formatNumber(totalEnv)}</span>
+            <span class="cell-total">${formatNumber(enviosInfo.totalUni || 0)}</span>
             <button
               type="button"
               class="mini-popup-btn"
@@ -432,7 +516,7 @@ async function seleccionar(ps){
 
         <td class="center">
           <div class="cell-combo">
-            <span class="cell-total">${formatNumber(totalEnt)}</span>
+            <span class="cell-total">${formatNumber(entregasInfo.totalUni || 0)}</span>
             <button
               type="button"
               class="mini-popup-btn"
