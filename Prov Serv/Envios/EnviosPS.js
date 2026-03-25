@@ -8,7 +8,8 @@ const SUCURSAL = "Cerv";
 const SUPABASE_URL = "https://hrxfctzncixxqmpfhskv.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BqpAgZH6ty-9wft10_YMhw_0rcIPuWT";
 const TABLA_DESTINO = "Envios a PS";
-
+const TABLA_SP_KG = "SP Kg";
+const TABLA_ENTREGAS = "Entregas PS";
 const SUPABASE_TABLE = "Partes x PS";
 const COL_PS = "PS";
 const COL_PROCESO = "Proceso";
@@ -101,6 +102,149 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function pick(o, keys) {
+  for (const k of keys) {
+    if (o && k in o) return o[k];
+  }
+  return "";
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+async function getSpKgMap() {
+  const { data, error } = await sb
+    .from(TABLA_SP_KG)
+    .select("*");
+
+  if (error) throw error;
+
+  const map = new Map();
+
+  (data || []).forEach(r => {
+    const key = String(r.Sp || r.SP || "").trim().toLowerCase();
+    if (!key) return;
+
+    map.set(key, {
+      kgUni: parseDecimal(pick(r, [
+        "Kg x UNI",
+        "Kg x Uni",
+        "kg x uni",
+        "Kg x UN",
+        "Kg Uni"
+      ])),
+      kgCaj: parseDecimal(pick(r, [
+        "KG Cajon",
+        "KG x Cajon",
+        "kg cajon",
+        "kg x cajon"
+      ])),
+      maxCajonSPTotal: parseDecimal(pick(r, [
+        "Max Cajon SP Total",
+        "MaxCajonSPTotal",
+        "Max Cajon",
+        "Max Caj"
+      ]))
+    });
+  });
+
+  return map;
+}
+
+async function getTotalesEnviosMap() {
+  const { data, error } = await sb
+    .from(TABLA_DESTINO)
+    .select("*");
+
+  if (error) throw error;
+
+  const map = new Map();
+
+  (data || []).forEach(r => {
+    const provServ = normalizeText(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"]));
+    const sectorSP = normalizeText(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp"]));
+    const kg = parseDecimal(pick(r, ["KG", "Kg", "kg"]));
+
+    if (!provServ || !sectorSP) return;
+
+    const key = `${provServ}__${sectorSP}`;
+    map.set(key, (map.get(key) || 0) + kg);
+  });
+
+  return map;
+}
+
+async function getTotalesEntregasMap() {
+  const { data, error } = await sb
+    .from(TABLA_ENTREGAS)
+    .select("*");
+
+  if (error) throw error;
+
+  const map = new Map();
+
+  (data || []).forEach(r => {
+    const provServ = normalizeText(pick(r, ["Prov_Serv", "Prov Serv", "prov_serv"]));
+    const sectorSP = normalizeText(pick(r, ["Sector SP", "Sector_SP", "sector sp", "sector_sp"]));
+    const kg = parseDecimal(pick(r, ["KG", "Kg", "kg"]));
+
+    if (!provServ || !sectorSP) return;
+
+    const key = `${provServ}__${sectorSP}`;
+    map.set(key, (map.get(key) || 0) + kg);
+  });
+
+  return map;
+}
+
+function calcularCajonesAEnviar(ps, sp, spKgMap, enviosMap, entregasMap) {
+  const spKey = String(sp || "").trim().toLowerCase();
+  const info = spKgMap.get(spKey) || { kgCaj: 0, maxCajonSPTotal: 0 };
+
+  const kgCaj = Number(info.kgCaj || 0);
+  const maxCajonSPTotal = Number(info.maxCajonSPTotal || 0);
+
+  if (kgCaj <= 0 || maxCajonSPTotal <= 0) return 0;
+
+  const movKey = `${normalizeText(ps)}__${normalizeText(sp)}`;
+
+  const enviosKg = Number(enviosMap.get(movKey) || 0);
+  const entregasKg = Number(entregasMap.get(movKey) || 0);
+
+  const onlineKg = enviosKg - entregasKg;
+  const objetivoKg = maxCajonSPTotal * kgCaj;
+  const faltanteKg = objetivoKg - onlineKg;
+
+  return Math.max(0, Math.ceil(faltanteKg / kgCaj));
+}
+function parseDecimal(value) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  let s = String(value).trim();
+  if (!s || s === "-" || s === "—") return 0;
+
+  s = s.replace(/[^\d,.-]/g, "");
+
+  if (s.includes(",") && !s.includes(".")) {
+    s = s.replace(",", ".");
+  } else {
+    s = s.replace(/,/g, "");
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+
 /***********************
  * DATA
  ***********************/
@@ -192,7 +336,7 @@ function renderTable(items) {
         <td>${escapeHtml(item.parte)}</td>
         <td>${escapeHtml(item.proceso)}</td>
         <td>${escapeHtml(item.sc)}</td>
-        <td>${escapeHtml(item.sp)}</td>
+        <td>${Number(item.cajonesAEnviar || 0)}</td>
         <td>
   <input
     class="input-kg"
@@ -292,12 +436,28 @@ async function seleccionarPS(ps) {
   setStatus("Buscando partes...", "");
 
   try {
-    fetchedItems = await getItemsPorPS(ps);
+    const [itemsBase, spKgMap, enviosMap, entregasMap] = await Promise.all([
+  getItemsPorPS(ps),
+  getSpKgMap(),
+  getTotalesEnviosMap(),
+  getTotalesEntregasMap()
+]);
 
-    selectedBadge.textContent = ps;
-    tableTitle.textContent = ps;
+fetchedItems = itemsBase.map(item => ({
+  ...item,
+  cajonesAEnviar: calcularCajonesAEnviar(
+    ps,
+    item.sp,
+    spKgMap,
+    enviosMap,
+    entregasMap
+  )
+}));
 
-    renderTable(fetchedItems);
+selectedBadge.textContent = ps;
+tableTitle.textContent = ps;
+
+renderTable(fetchedItems);
     showDetailView();
 
     if (fetchedItems.length) {
@@ -471,6 +631,11 @@ const items = rawItems.filter(it => {
       fecha: getDiaMesHoy(),
       items
     });
+
+        // 🔥 volver automáticamente al inicio
+    setTimeout(() => {
+      resetAll();
+    }, 500);
   } catch (e) {
     isSubmitting = false;
     btnEnviarCambios.disabled = false;
