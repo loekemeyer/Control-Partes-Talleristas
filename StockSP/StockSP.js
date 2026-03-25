@@ -37,6 +37,18 @@
        .replace(/[\u0300-\u036f]/g, "")
        .replace(/\s+/g, " ");
    }
+   function normalizeCod3(value) {
+     let s = String(value || "").trim().toUpperCase();
+     if (!s) return "";
+   
+     const m = s.match(/^(\d+)(.*)$/);
+     if (!m) return s;
+   
+     const numero = m[1].padStart(3, "0");
+     const resto = String(m[2] || "").trim().toUpperCase();
+   
+     return `${numero}${resto}`;
+   }
    
    function parseDecimal(value) {
      if (value === null || value === undefined || value === "") return 0;
@@ -459,7 +471,7 @@
          "COD",
          "ARTICULO",
          "Sector Proce",
-         "Partes x Cja"
+         "Partes x uni"
        `);
    
      if (error) throw new Error(error.message);
@@ -468,8 +480,8 @@
    
    async function cargarEMadre() {
      const [lk, ch] = await Promise.all([
-       supabaseClient.from("E. Madre LK").select(`"Cod","E. Madre"`),
-       supabaseClient.from("E. Madre CH").select(`"Cod","E. Madre"`),
+       supabaseClient.from("E. Madre LK").select(`*`),
+       supabaseClient.from("E. Madre CH").select(`*`),
      ]);
    
      if (lk.error) throw new Error(lk.error.message);
@@ -481,31 +493,37 @@
      const map = new Map();
    
      const eMadreMap = new Map();
-     eMadreRows.forEach(r => {
-       eMadreMap.set(String(r["Cod"]).trim(), Number(r["E. Madre"]) || 0);
+   
+     eMadreRows.forEach((r) => {
+       const codNorm = normalizeCod3(r["Cod"]);
+       const eMadre = Number(r["E. Madre"]) || 0;
+   
+       if (!codNorm) return;
+   
+       eMadreMap.set(codNorm, eMadre);
      });
    
-     despieceRows.forEach(r => {
+     despieceRows.forEach((r) => {
        const sector = normalizeText(r["Sector Proce"]);
-       const cod = String(r["COD"]).trim();
-       const partesXCaja = Number(r["Partes x Cja"]) || 0;
+       const codNorm = normalizeCod3(r["COD"]);
+       const partesXUni = Number(r["Partes x uni"]) || 0;
    
-       if (!sector || !cod) return;
+       if (!sector || !codNorm) return;
    
        if (!map.has(sector)) {
          map.set(sector, {
            codigos: new Set(),
-           consumo: 0
+           consumo: 0,
          });
        }
    
        const entry = map.get(sector);
    
-       entry.codigos.add(cod);
+       entry.codigos.add(codNorm);
    
-       const eMadre = eMadreMap.get(cod) || 0;
+       const eMadre = eMadreMap.get(codNorm) || 0;
    
-       entry.consumo += eMadre * partesXCaja;
+       entry.consumo += eMadre * partesXUni;
      });
    
      return map;
