@@ -339,11 +339,22 @@ function abrirPopupStocks(titulo, detalle, kgUni, kgCaj, tipo) {
 }
 
 function buildMovimientoCell(valorKg, detalle, rowIndex, tipo, kgUni, kgCaj, formato) {
-  const total = formatValorSegunFormato(
-    convertirKgAFormato(valorKg, kgUni, kgCaj, formato),
-    formato
-  );
+  let valorMostrado;
 
+  if (tipo === "ps" && Array.isArray(detalle) && detalle.length) {
+    valorMostrado = detalle.reduce((acc, item) => {
+      return acc + convertirKgAFormato(
+        item.kg,
+        item.kgUni || kgUni,
+        item.kgCaj || kgCaj,
+        formato
+      );
+    }, 0);
+  } else {
+    valorMostrado = convertirKgAFormato(valorKg, kgUni, kgCaj, formato);
+  }
+
+  const total = formatValorSegunFormato(valorMostrado, formato);
   const tieneDetalle = Array.isArray(detalle) && detalle.length > 0;
 
   if (!tieneDetalle) {
@@ -820,7 +831,7 @@ async function cargarStocksGeneral() {
     lblEstado.textContent = "Cargando...";
     tbodyStocksGeneral.innerHTML = `
       <tr>
-        <td colspan="5" class="empty">Cargando datos...</td>
+        <td colspan="6" class="empty">Cargando datos...</td>
       </tr>
     `;
 
@@ -831,7 +842,7 @@ async function cargarStocksGeneral() {
     lblEstado.textContent = `Error: ${error.message || error}`;
     tbodyStocksGeneral.innerHTML = `
       <tr>
-        <td colspan="5" class="empty">Error al cargar datos.</td>
+        <td colspan="6" class="empty">Error al cargar datos.</td>
       </tr>
     `;
   }
