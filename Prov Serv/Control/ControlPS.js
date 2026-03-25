@@ -9,7 +9,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const TABLA_PARTES = "Partes x PS";
 const TABLA_SP_KG = "SP Kg";
 const TABLA_ENVIOS_PS = "Envios a PS";
-const TABLA_ENTREGAS_PS = "Entrega a PS";
+const TABLA_ENTREGAS_PS = "Entregas PS";
 
 /*************************************************
  * DOM
