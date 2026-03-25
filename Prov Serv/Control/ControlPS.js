@@ -174,7 +174,7 @@ async function cargarSPKG(){
 
     map.set(key, {
       kgUni: parseDecimal(pick(r, ["Kg x UNI", "Kg x Uni", "kg x uni", "Kg x UN", "Kg Uni"])),
-      kgCaj: parseDecimal(pick(r, ["Kg Cajon", "Kg x Cajon", "kg cajon", "kg x cajon"])),
+      kgCaj: parseDecimal(pick(r, ["KG Cajon", "KG x Cajon", "kg cajon", "kg x cajon"])),
       stockInicial: parseDecimal(pick(r, [
         "Stock Inicial",
         "Stock inicial",
