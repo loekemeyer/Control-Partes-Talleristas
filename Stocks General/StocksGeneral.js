@@ -341,15 +341,28 @@ function abrirPopupStocks(titulo, detalle, kgUni, kgCaj, tipo) {
 function buildMovimientoCell(valorKg, detalle, rowIndex, tipo, kgUni, kgCaj, formato) {
   let valorMostrado;
 
-  if (tipo === "ps" && Array.isArray(detalle) && detalle.length) {
-    valorMostrado = detalle.reduce((acc, item) => {
-      return acc + convertirKgAFormato(
-        item.kg,
-        item.kgUni || kgUni,
-        item.kgCaj || kgCaj,
-        formato
-      );
-    }, 0);
+  if (Array.isArray(detalle) && detalle.length) {
+    if (tipo === "ps") {
+      valorMostrado = detalle.reduce((acc, item) => {
+        return acc + convertirKgAFormato(
+          item.kg,
+          item.kgUni || kgUni,
+          item.kgCaj || kgCaj,
+          formato
+        );
+      }, 0);
+    } else if (tipo === "sp" && formato === "caj") {
+      valorMostrado = detalle.reduce((acc, item) => {
+        if (item.cajones !== undefined && item.cajones !== null) {
+          return acc + num(item.cajones);
+        }
+        return acc + convertirKgAFormato(item.kg, kgUni, kgCaj, formato);
+      }, 0);
+    } else {
+      valorMostrado = detalle.reduce((acc, item) => {
+        return acc + convertirKgAFormato(item.kg, kgUni, kgCaj, formato);
+      }, 0);
+    }
   } else {
     valorMostrado = convertirKgAFormato(valorKg, kgUni, kgCaj, formato);
   }
