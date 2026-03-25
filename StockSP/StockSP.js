@@ -92,7 +92,8 @@ async function cargarBaseSPKg() {
       "Parte",
       "Max Cajon SP Total",
       "Kg x Uni",
-      "Stock Inicial"
+      "Stock Inicial",
+      "KG x Cajon"
     `,
     )
     .order("Sp", { ascending: true });
