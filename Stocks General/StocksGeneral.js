@@ -462,7 +462,47 @@ async function getBaseSP() {
     };
   }).filter(r => r.key);
 }
+async function getSCMap() {
+  const [idx, scRows] = await Promise.all([
+    cargarIndicesPiezaMadre(),
+    fetchTabla(TABLA_SC_KG, "*")
+  ]);
 
+  const detalleMap = new Map();
+
+  (scRows || []).forEach(r => {
+    const ref = resolverRefSC(r, idx);
+    const key = normalizeText(ref?.piezaMadre || "");
+
+    const sc = String(pick(r, ["SC", "Sc", "sc"])).trim() || "SC";
+
+    const onlineKg = num(pick(r, [
+      "kg_online",
+      "Kg Online",
+      "KG Online",
+      "kg online",
+      "stock_online",
+      "Stock Online"
+    ]));
+
+    if (!key) return;
+
+    if (!detalleMap.has(key)) detalleMap.set(key, []);
+    detalleMap.get(key).push({
+      label: sc,
+      kg: onlineKg
+    });
+  });
+
+  const result = new Map();
+
+  detalleMap.forEach((detalle, piezaKey) => {
+    const totalKg = detalle.reduce((acc, x) => acc + num(x.kg), 0);
+    result.set(piezaKey, { totalKg, detalle });
+  });
+
+  return result;
+}
 /*************************************************
  * SP = 0 + Entregas PS - Envios Tall
  *************************************************/
@@ -685,14 +725,16 @@ async function getTallMap() {
  * ARMADO FINAL
  *************************************************/
 async function construirStocks() {
-  const [baseRows, spMap, psMap, tallMap] = await Promise.all([
+  const [baseRows, scMap, spMap, psMap, tallMap] = await Promise.all([
     getBaseSP(),
+    getSCMap(),
     getSPMap(),
     getPSMap(),
     getTallMap()
   ]);
 
   return baseRows.map(base => {
+    const scInfo = scMap.get(base.key) || { totalKg: 0, detalle: [] };
     const spInfo = spMap.get(base.key) || { totalKg: 0, detalle: [] };
     const psInfo = psMap.get(base.key) || { totalKg: 0, detalle: [] };
     const tallInfo = tallMap.get(base.key) || { totalKg: 0, detalle: [] };
@@ -705,9 +747,11 @@ async function construirStocks() {
       descripcion: base.descripcion || "",
       kgUni: num(base.kgUni),
       kgCaj: num(base.kgCaj),
+      stockSCKg: num(scInfo.totalKg),
       stockSPKg: num(spInfo.totalKg),
       stockPSKg: num(psInfo.totalKg),
       stockTallKg: num(tallInfo.totalKg),
+      detalleSC: scInfo.detalle || [],
       detalleSP: spInfo.detalle || [],
       detallePS: psInfo.detalle || [],
       detalleTall: tallInfo.detalle || []
@@ -774,41 +818,47 @@ function renderTable(rows) {
   const formato = getFormatoActual();
 
   tbodyStocksGeneral.innerHTML = rows.map((r, index) => `
-    <tr>
-      <td class="text-left">${escapeHtml(r.sectores || "")}</td>
-      <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
-      <td class="text-left">${escapeHtml(r.sc || "")}</td>
+  <tr>
+    <td class="text-left">${escapeHtml(r.sectores || "")}</td>
+    <td class="text-left">${escapeHtml(r.descripcion || "")}</td>
+    <td class="text-left">${escapeHtml(r.sc || "")}</td>
 
-      <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockSPKg, r.detalleSP, index, "sp", r.kgUni, r.kgCaj, formato)}
-      </td>
+    <td class="text-right ${r.stockSCKg < 0 ? "negativo" : ""}">
+      ${buildMovimientoCell(r.stockSCKg, r.detalleSC, index, "sc", r.kgUni, r.kgCaj, formato)}
+    </td>
 
-      <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockPSKg, r.detallePS, index, "ps", r.kgUni, r.kgCaj, formato)}
-      </td>
+    <td class="text-right ${r.stockSPKg < 0 ? "negativo" : ""}">
+      ${buildMovimientoCell(r.stockSPKg, r.detalleSP, index, "sp", r.kgUni, r.kgCaj, formato)}
+    </td>
 
-      <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
-        ${buildMovimientoCell(r.stockTallKg, r.detalleTall, index, "tall", r.kgUni, r.kgCaj, formato)}
-      </td>
-    </tr>
-  `).join("");
+    <td class="text-right ${r.stockPSKg < 0 ? "negativo" : ""}">
+      ${buildMovimientoCell(r.stockPSKg, r.detallePS, index, "ps", r.kgUni, r.kgCaj, formato)}
+    </td>
+
+    <td class="text-right ${r.stockTallKg < 0 ? "negativo" : ""}">
+      ${buildMovimientoCell(r.stockTallKg, r.detalleTall, index, "tall", r.kgUni, r.kgCaj, formato)}
+    </td>
+  </tr>
+`).join("");
 
   tbodyStocksGeneral.querySelectorAll(".mini-popup-btn-stock").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const rowIndex = Number(btn.dataset.rowIndex);
-      const tipo = btn.dataset.tipo;
-      const row = rows[rowIndex];
-      if (!row) return;
+  btn.addEventListener("click", () => {
+    const rowIndex = Number(btn.dataset.rowIndex);
+    const tipo = btn.dataset.tipo;
+    const row = rows[rowIndex];
+    if (!row) return;
 
-      if (tipo === "sp") {
-        abrirPopupStocks(`SP - ${row.descripcion || ""}`, row.detalleSP, row.kgUni, row.kgCaj, "sp");
-      } else if (tipo === "ps") {
-        abrirPopupStocks(`PS - ${row.descripcion || ""}`, row.detallePS, row.kgUni, row.kgCaj, "ps");
-      } else {
-        abrirPopupStocks(`Tall - ${row.descripcion || ""}`, row.detalleTall, row.kgUni, row.kgCaj, "tall");
-      }
-    });
+    if (tipo === "sc") {
+      abrirPopupStocks(`SC - ${row.descripcion || ""}`, row.detalleSC, row.kgUni, row.kgCaj, "sc");
+    } else if (tipo === "sp") {
+      abrirPopupStocks(`SP - ${row.descripcion || ""}`, row.detalleSP, row.kgUni, row.kgCaj, "sp");
+    } else if (tipo === "ps") {
+      abrirPopupStocks(`PS - ${row.descripcion || ""}`, row.detallePS, row.kgUni, row.kgCaj, "ps");
+    } else {
+      abrirPopupStocks(`Tall - ${row.descripcion || ""}`, row.detalleTall, row.kgUni, row.kgCaj, "tall");
+    }
   });
+});
 }
 
 function aplicarFiltros() {
@@ -822,10 +872,11 @@ function aplicarFiltros() {
       normalizeText(r.descripcion).includes(q) ||
       normalizeText(r.sectores).includes(q);
 
-    const totalAbs =
-      Math.abs(convertirKgAFormato(r.stockSPKg, r.kgUni, r.kgCaj, formato)) +
-      Math.abs(convertirKgAFormato(r.stockPSKg, r.kgUni, r.kgCaj, formato)) +
-      Math.abs(convertirKgAFormato(r.stockTallKg, r.kgUni, r.kgCaj, formato));
+const totalAbs =
+  Math.abs(convertirKgAFormato(r.stockSCKg, r.kgUni, r.kgCaj, formato)) +
+  Math.abs(convertirKgAFormato(r.stockSPKg, r.kgUni, r.kgCaj, formato)) +
+  Math.abs(convertirKgAFormato(r.stockPSKg, r.kgUni, r.kgCaj, formato)) +
+  Math.abs(convertirKgAFormato(r.stockTallKg, r.kgUni, r.kgCaj, formato));
 
     const tieneStock = totalAbs > 0;
 
